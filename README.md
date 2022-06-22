@@ -1,1 +1,3 @@
-# schedulearn
+# Schedulearn
+
+Still in design phase
