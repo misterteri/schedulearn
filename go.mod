@@ -1,4 +1,4 @@
-module golang_docker
+module schedulearn
 
 go 1.18
 

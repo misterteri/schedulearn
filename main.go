@@ -6,17 +6,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"schedulearn/handlers"
 	"syscall"
 	"time"
 )
 
 func main() {
-	logger := log.New(os.Stdout, "Schedulearn", log.LstdFlags)
+	logger := log.New(os.Stdout, "schedulearn ", log.LstdFlags)
 
 	serveMux := http.NewServeMux()
-	serveMux.Handle("/post", h.NewPost(logger))
-	serveMux.Handle("/get", h.NewGet(logger))
-	serveMux.Handle("/delete", h.NewDelete(logger))
+	serveMux.Handle("/post", handlers.NewPost(logger))
+	serveMux.Handle("/get", handlers.NewGet(logger))
+	serveMux.Handle("/delete", handlers.NewDelete(logger))
 
 	server := &http.Server{
 		Handler:      serveMux,
