@@ -6,25 +6,23 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"schedulearn/handlers"
 	"syscall"
 	"time"
 )
 
 func main() {
-	logger := log.New(os.Stdout, "schedulearn ", log.LstdFlags)
+	logger := log.New(os.Stdout, "Schedulearn", log.LstdFlags)
 
 	serveMux := http.NewServeMux()
-	serveMux.Handle("/api/v1/post", handlers.NewPost(logger))
-	serveMux.Handle("/api/v1/get", handlers.NewGet(logger))
-	serveMux.Handle("/api/v1/delete", handlers.NewDelete(logger))
+	serveMux.Handle("/post", h.NewPost(logger))
+	serveMux.Handle("/get", h.NewGet(logger))
+	serveMux.Handle("/delete", h.NewDelete(logger))
 
 	server := &http.Server{
 		Handler:      serveMux,
 		Addr:         ":8080",
-		IdleTimeout:  120 * time.Second,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
 	}
 
 	go func() {
@@ -33,7 +31,7 @@ func main() {
 			logger.Fatal(err)
 		}
 	}() // run in background
-	logger.Println("Server started on port 8080")
+	logger.Println("API up and running")
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
