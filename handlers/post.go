@@ -33,15 +33,18 @@ func (post *Post) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("Successfully Opened message.json")
+
 	// defer the closing of our jsonFile
 	defer jsonFile.Close()
 
 	// read our opened jsonFile as a byte array.
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	var message Message
+
 	// we unmarshal our byteArray which contains our
-	// jsonFile's content into 'users' which we defined above.
+	// jsonFile's content into 'message' which we defined above.
 	json.Unmarshal(byteValue, &message)
+
 	// we then print out the content of Message which is
 	// a slice of type Message.
 	post.Logger.Println(message.Message)
