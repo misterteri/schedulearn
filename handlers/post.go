@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"schedulearn/docker"
 )
 
 type Post struct {
@@ -23,6 +24,7 @@ func NewPost(logger *log.Logger) *Post {
 
 func (post *Post) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK) // 200 OK
+	post.Logger.Printf("Received 'POST' request")
 
 	// open json file
 	jsonFile, err := os.Open("message.json")
@@ -43,17 +45,10 @@ func (post *Post) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// we then print out the content of Message which is
 	// a slice of type Message.
 	post.Logger.Println(message.Message)
-}
 
-// // read message.json
-// message, err := ioutil.ReadFile("message.json")
-// if err != nil {
-// 	post.Logger.Println(err)
-// 	return
-// }
-// // parsing message.json
-// err = json.Unmarshal(message, &message)
-// if err != nil {
-// 	post.Logger.Println(err)
-// 	return
-// }
+	err = docker.Run(message.Message)
+	if err != nil {
+		post.Logger.Println("Error running docker:", err)
+		return
+	}
+}

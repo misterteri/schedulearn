@@ -1,4 +1,4 @@
-package main
+package docker
 
 import (
 	"context"
@@ -12,20 +12,19 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
-func main() {
-
+func Run(message string) error {
 	// create a docker client
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	imageName := "docker.io/library/alpine:latest"
+	imageName := "heyfey/horovod:latest"
 	// pull the image if it doesn't exist
 	out, err := cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer out.Close()
 	io.Copy(os.Stdout, out)
@@ -33,14 +32,16 @@ func main() {
 	// create a container
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
+		Cmd:   []string{"echo", message},
+		Tty:   false,
 	}, nil, nil, nil, "")
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// start the container
 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		panic(err)
+		return err
 	}
 
 	fmt.Println(resp.ID)
@@ -52,7 +53,7 @@ func main() {
 		Follow:     true,
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer out.Close()
 
@@ -61,6 +62,8 @@ func main() {
 
 	// delete container
 	if err := cli.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{}); err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }
