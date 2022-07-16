@@ -22,16 +22,16 @@ class Job(SQLModel, table = True, table_name="jobs"):
     required_gpus: int = Field(default=None)
     weight: int = Field(default=None)
     number_of_migrations: int = Field(default=None)
-    at_server: list[str] = Field(default=None, foreign_key="server.id")
+    at_server: list[str] = Field(default=None, foreign_key="servers.id")
 
 class Server(SQLModel, table = True, table_name="servers"):
     id: str = Field(primary_key=True, nullable=False)
-    occupied_at: Optional[int] = Field(default=None, foreign_key="gpu.id")
+    occupied_at: Optional[int] = Field(default=None, foreign_key="gpus.id")
 
 class Gpu(SQLModel, table = True, table_name="gpus"):
     id: str = Field(primary_key=True, nullable=False)
-    server_id: Optional[str] = Field(foreign_key="server.id", nullable=False)
-    job_id: Optional[str] = Field(foreign_key="job.id")
+    server_id: Optional[str] = Field(foreign_key="servers.id", nullable=False)
+    job_id: Optional[str] = Field(foreign_key="jobs.id")
 
 def create_tables():
     SQLModel.metadata.create_all(engine)
