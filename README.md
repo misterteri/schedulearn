@@ -4,8 +4,10 @@ Schedulearn is contraction of "Scheduling Deep Learning", and the goal of this p
 This project is intended to serve as my thesis project, and it's made on top of several tools:
 
 1. Docker
-2. Flask
-3. Horovod
+2. FastAPI
+3. Pydantic
+4. SQLModel
+5. Horovod
 
 ## Setup
 
@@ -18,32 +20,33 @@ conda activate schedulearn
 
 2. Install Docker and Flask's Python SDK
 ```
-pip install --user docker flask
+pip install docker fastapi "uvicorn[standard]"
 ```
 
 3. Run the API
 ```
-FLASK_APP=app.py FLASK_ENV=development flask run
+uvicorn main:app --reload --port 5000
 ```
 
 4. Sending a POST request
 
 First, you need to open a new tab in your terminal. In your new tab, run:
 ```
-curl -X POST -H "Content-Type: application/json" -d @./test.json http://localhost:5000/api/v1/post
+http POST http://localhost:5000/api/v1/post name="tensorflow-mnist" type="TFJob" image="horovod/horovod:latest" command="horovodrun -np 1 -H localhost: 1 python ./tensorflow2/tensorflow2_mnist.py" required_gpus=1
 ```
 
 # Progress
 
 - [x] Create a database called `schedulearn.db`
-    - [x] Create `job` table
-        - [x] Populate job table
-    - [x] Create `gpu` table
-        - [x] Populate `gpu` table
-    - [x] Create `server` table
-        - [x] Populate `server` table
-- [x] Create a REST API with Flask
-    - [ ] `/post` endpoint
+    - [x] Create tables using SQLModel to prevent SQL injection
+        - [x] Create `job` table
+            - [x] Populate job table
+        - [x] Create `gpu` table
+            - [x] Populate `gpu` table
+        - [x] Create `server` table
+            - [x] Populate `server` table
+- [x] Create a REST API with FastAPI
+    - [x] `/post` endpoint
         - [x] Receive a JSON file with training model requirements
             - [x] has `jobname`
             - [x] has `jobtype`
@@ -51,7 +54,7 @@ curl -X POST -H "Content-Type: application/json" -d @./test.json http://localhos
             - [x] has `command`
             - [x] has `requiredgpus`
         - [x] Store the info in JSON to the `Job` table in database
-        - [ ] Validate the JSON file with JSON Schema
+        - [x] Validate the JSON file with Pydantic
     - [ ]  `/delete` endpoint
         - [ ] if a model is on progress, delete the pod immediately, as well as the metadata of a model in the database
         - [ ] If a training model is completed, delete the model info in the database
