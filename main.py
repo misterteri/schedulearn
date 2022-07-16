@@ -1,32 +1,80 @@
-from config import log_config
-from logging.config import dictConfig
 import logging
+from logging.config import dictConfig
+from typing import Optional
 
+import config
+import database as db
 from fastapi import FastAPI
 from pydantic import BaseModel
-from sqlmodel import create_engine
-from database import InitializeDB
+from sqlmodel import Session, select
+import uvicorn
 
-dictConfig(log_config)
+dictConfig(config.LOGGING)
+
 logger = logging.getLogger("schedulearn")
-
-InitializeDB(logger)
-engine = create_engine("sqlite:///schedulearn.sqlite3", echo=True)
 app = FastAPI(debug=True)
-logger.info("API is running at http://localhost:5000/")
 
 class Job(BaseModel):
     name: str
     type: str
-    image: str
+    container_image: str
     command: str
-    required_gpus: int
+    no_of_gpus: int
 
-# create an endpoint that receives json file
-@app.post("/api/v1/post")
-async def get_job(job: Job):
-    # # insert the job into the database
-    # with Session(engine) as session:
-    #     session.add(job)
-    #     session.commit()
+@app.on_event("startup")
+def on_startup():
+    db.initialize()
+
+
+@app.put("/jobs")
+async def add_job(job: Job):
+    "Add a job to the scheduler"
+    with Session(db.engine) as session:
+        job = db.Job(**job.dict())
+        session.add(job)
+        session.commit()
     return job
+
+
+@app.get("/jobs")
+async def get_jobs():
+    "Get all jobs"
+    with Session(db.engine) as session:
+        statement = select(db.Job)
+        jobs = session.exec(statement).fetchall()
+        return jobs
+
+
+@app.get("/jobs/{id}")
+async def get_job(id: int):
+    "Get status of a job"
+    with Session(db.engine) as session:
+        job = session.exec(
+            select(db.Job).where(db.Job.id == id)
+        ).one()
+
+        return job
+
+
+@app.delete("/jobs/{id}")
+async def kill_job(id: int):
+    """
+    If a model is on progress, delete the pod immediately, as well as the
+    metadata of a model in the database.
+    """
+    with Session(db.engine) as session:
+        job = session.exec(
+            select(db.Job).where(db.Job.id == id)
+        ).one()
+
+        # kill the container running the job
+        # ....
+
+        # delete the job from the database
+        session.delete(job)
+        session.commit()
+        return job
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=config.PORT)
