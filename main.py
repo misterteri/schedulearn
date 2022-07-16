@@ -13,7 +13,7 @@ logger = logging.getLogger("schedulearn")
 InitializeDB(logger)
 engine = create_engine("sqlite:///schedulearn.sqlite3", echo=True)
 app = FastAPI(debug=True)
-logger.debug("API is running at http://localhost:5000/")
+logger.info("API is running at http://localhost:5000/")
 
 class Job(BaseModel):
     name: str

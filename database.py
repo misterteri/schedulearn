@@ -44,7 +44,7 @@ def InitializeDB(logger: logging.Logger):
         with Session(engine) as session:
             for server in SERVERS:
                 session.add(Server(id=server))
-                logger.debug(f"Created server {server}")
+                logger.info(f"Created server {server}")
             session.commit()
 
         # populate gpus
@@ -52,5 +52,5 @@ def InitializeDB(logger: logging.Logger):
             for server in SERVERS:
                 for gpu in GPU_ID:
                     session.add(Gpu(id=f"{server}-{gpu}", server_id=server))
-                    logger.debug(f"Created gpu {gpu} on server {server}")
+                    logger.info(f"Created gpu {gpu} on server {server}")
             session.commit()
