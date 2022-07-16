@@ -1,56 +1,77 @@
-import os
-import logging
-from typing import Optional
 from datetime import datetime
-from sqlmodel import Field, SQLModel, create_engine, Session
+import os
+from typing import Optional
+from typing import List
 
-DB_FILE = "schedulearn.sqlite3"
-engine = create_engine(f"sqlite:///{DB_FILE}", echo=True)
+import config
+from sqlmodel import Field, Relationship, SQLModel, Session, create_engine
 
-GPU_ID = [0,1,2,3]
-SERVERS = ["gpu3", "gpu4", "gpu5"]
+engine = create_engine(config.DB_URL, echo=True)
 
-class Job(SQLModel, table = True, table_name="jobs"):
-    id: int = Field(primary_key=True)
-    job_name: str = Field(default=None)
-    job_type: str = Field(default=None)
+class Job(SQLModel, table=True):
+    "Record of a job that has been scheduled"
+
+    id: Optional[int] = Field(primary_key=True, default=None)
+    name: str = Field(default=None)
+    type: str = Field(default=None)
     container_image: str = Field(default=None)
     command: str = Field(default=None)
     created_at: datetime = Field(default=None)
     started_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)
-    required_gpus: int = Field(default=None)
+    no_of_gpus: int = Field(default=None)
     weight: int = Field(default=None)
-    number_of_migrations: int = Field(default=None)
-    at_server: list[str] = Field(default=None, foreign_key="servers.id")
+    no_of_migrations: int = Field(default=None)
 
-class Server(SQLModel, table = True, table_name="servers"):
-    id: str = Field(primary_key=True, nullable=False)
-    occupied_at: Optional[int] = Field(default=None, foreign_key="gpus.id")
+    running_jobs: List["RunningJob"] = Relationship(back_populates="job")
 
-class Gpu(SQLModel, table = True, table_name="gpus"):
-    id: str = Field(primary_key=True, nullable=False)
-    server_id: Optional[str] = Field(foreign_key="servers.id", nullable=False)
-    job_id: Optional[str] = Field(foreign_key="jobs.id")
 
-def create_tables():
+class Server(SQLModel, table=True):
+    "Keeps track of the servers in the cluster"
+
+    id: Optional[int] = Field(primary_key=True, default=None)
+    host_name: str = Field()
+
+    gpus: List["Gpu"] = Relationship(back_populates="server")
+
+
+class Gpu(SQLModel, table=True):
+    "Keeps track of the GPU's unique name and the server it is connected to"
+
+    id: Optional[int] = Field(primary_key=True, default=None)
+    identifier: str = Field()
+
+    server_id: Optional[int] = Field(default=None, foreign_key="server.id")
+    server: Optional[Server] = Relationship(back_populates="gpus")
+
+
+class RunningJob(SQLModel, table=True, table_name="runningjob"):
+    "Record of a job that is currently running"
+
+    id: Optional[int] = Field(primary_key=True, default=None)
+    started_at: Optional[datetime] = Field(default=None)
+    completed_at: Optional[datetime] = Field(default=None)
+    weight: int = Field(default=None)
+    no_of_migrations: int = Field(default=None)
+
+    job_id: Optional[int] = Field(default=None, foreign_key="job.id")
+    gpu_id: Optional[str] = Field(default=None)
+    jobs: List["Job"] = Relationship(back_populates="runningjob")
+    gpus: List["Gpu"] = Relationship(back_populates="runningjob")
+
+
+def initialize():
+    if os.path.exists(config.DB_URL):
+        return
+
     SQLModel.metadata.create_all(engine)
 
-def InitializeDB(logger: logging.Logger):
-    if not os.path.exists(DB_FILE):
-        create_tables()
-
-        # populate servers
-        with Session(engine) as session:
-            for server in SERVERS:
-                session.add(Server(id=server))
-                logger.info(f"Created server {server}")
-            session.commit()
-
-        # populate gpus
-        with Session(engine) as session:
-            for server in SERVERS:
-                for gpu in GPU_ID:
-                    session.add(Gpu(id=f"{server}-{gpu}", server_id=server))
-                    logger.info(f"Created gpu {gpu} on server {server}")
-            session.commit()
+    # Create a server then add gpus to the server
+    with Session(engine) as session:
+        for s in config.SERVERS:
+            server = Server(host_name=s.host_name)
+            session.add(server)
+            for g in s.gpus:
+                gpu = Gpu(identifier=g.identifier, server=server)
+                session.add(gpu)
+        session.commit()
