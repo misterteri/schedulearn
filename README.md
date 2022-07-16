@@ -54,7 +54,7 @@ http POST http://localhost:5000/api/v1/post name="tensorflow-mnist" type="TFJob"
             - [x] has `command`
             - [x] has `requiredgpus`
         - [x] Store the info in JSON to the `Job` table in database
-        - [x] Validate the JSON file with Pydantic
+        - [x] Validate the received JSON files with Pydantic
     - [ ]  `/delete` endpoint
         - [ ] if a model is on progress, delete the pod immediately, as well as the metadata of a model in the database
         - [ ] If a training model is completed, delete the model info in the database
