@@ -20,12 +20,12 @@ conda activate schedulearn
 
 2. Install Docker and Flask's Python SDK
 ```
-pip install docker fastapi "uvicorn[standard]"
+pip install -r requirements.txt
 ```
 
 3. Run the API
 ```
-uvicorn main:app --reload --port 5000
+python main.py
 ```
 
 4. Sending a POST request
