@@ -21,9 +21,33 @@ class Server:
     gpus: List[Gpu]
 
 SERVERS = [
-    Server(host_name="gpu3", gpus=[ Gpu(identifier="gpu3-0"), Gpu(identifier="gpu3-1") ]),
-    Server(host_name="gpu4", gpus=[ Gpu(identifier="gpu4-0"), Gpu(identifier="gpu4-1") ]),
-    Server(host_name="gpu5", gpus=[ Gpu(identifier="gpu5-0"), Gpu(identifier="gpu5-1") ]),
+    Server(
+        host_name="gpu3", 
+        gpus=[ 
+            Gpu(identifier="gpu3-0"), 
+            Gpu(identifier="gpu3-1"),
+            Gpu(identifier="gpu3-2"), 
+            Gpu(identifier="gpu3-3")
+        ]
+    ),
+    Server(
+        host_name="gpu4", 
+        gpus=[ 
+            Gpu(identifier="gpu4-0"), 
+            Gpu(identifier="gpu4-1"), 
+            Gpu(identifier="gpu4-2"), 
+            Gpu(identifier="gpu5-3")
+        ]
+    ),
+    Server(
+        host_name="gpu5", 
+        gpus=[ 
+            Gpu(identifier="gpu5-0"), 
+            Gpu(identifier="gpu5-1"), 
+            Gpu(identifier="gpu5-2"), 
+            Gpu(identifier="gpu5-3")
+        ]
+    ),
 ]
 
 LOGGING = {
