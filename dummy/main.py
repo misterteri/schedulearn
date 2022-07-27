@@ -1,17 +1,25 @@
-import logging
-from logging.config import dictConfig
-import os
 import config
+import uvicorn
+import logging
 import database as db
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 from sqlmodel import Session, select, col
-import uvicorn
+from logging.config import dictConfig
+from fastapi.middleware.cors import CORSMiddleware
 
 dictConfig(config.LOGGING)
-
 logger = logging.getLogger("schedulearn")
 app = FastAPI(debug=True)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins="http://localhost:3000",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class Job(BaseModel):
     name: str
