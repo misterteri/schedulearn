@@ -9,12 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@chakra-ui/icon": "^3.0.4",
+    "@chakra-ui/icons": "^2.0.4",
     "@chakra-ui/react": "^2.2.4",
+    "formik": "^2.2.9",
     "next": "12.2.3",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-hook-form": "^7.33.1"
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@types/node": "18.6.1",
