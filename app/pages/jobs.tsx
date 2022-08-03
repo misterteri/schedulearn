@@ -10,7 +10,7 @@ const Jobs: NextPage = () => {
 
     useEffect(() => {
         async function fetchJobs() {
-            const res = await fetch("http://localhost:8080/jobs");
+            const res = await fetch("http://localhost:5000/jobs");
             const data = await res.json();
             console.log(data);
             setJobs(data);
