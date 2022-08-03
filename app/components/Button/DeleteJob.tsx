@@ -9,11 +9,14 @@ import {
     IconButton,
     AlertDialogCloseButton,
     useDisclosure,
+    useToast,
 } from "@chakra-ui/react";
 import { Button } from "@chakra-ui/react";
 import { DeleteIcon } from "@chakra-ui/icons";
 
 function DeleteButton({ id }: { id: number }) {
+    const toast = useToast()
+
     const handleDeleteJob = async () => {
         const res = await fetch(`http://localhost:5000/jobs/${id}`, {
             method: "DELETE",
@@ -21,6 +24,12 @@ function DeleteButton({ id }: { id: number }) {
         window.location.reload();
         const data = await res.json();
         console.log(data);
+        toast({
+            title: "Job deleted",
+            description: "The job has been deleted",
+            status: "success",
+            duration: 9000,
+        })
     };
 
     const { isOpen, onOpen, onClose } = useDisclosure();
