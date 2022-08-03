@@ -1,8 +1,8 @@
 import type { NextPage } from 'next'
 import '../styles/Home.module.css'
-import Form from '../components/Form'
 import { Heading } from '@chakra-ui/react'
 import Layout from '../components/Layout'
+import JobForm from '../components/Form/Job'
 
 const Home: NextPage = () => {
   return (
@@ -10,7 +10,7 @@ const Home: NextPage = () => {
       <Heading as="h1">
         Schedulearn
       </Heading>
-      <Form />
+      <JobForm />
     </Layout>
   )
 }
