@@ -26,7 +26,7 @@ class Job(BaseModel):
     type: str
     container_image: str
     command: str
-    no_of_gpus: int
+    required_gpus: int
 
 
 @app.on_event("startup")
@@ -52,7 +52,7 @@ async def get_jobs():
     with Session(db.engine) as session:
         jobs = session.exec(
             select(db.Job)
-            .order_by(col(db.Job.created_at), col(db.Job.no_of_gpus).desc())
+            .order_by(col(db.Job.created_at).desc())
         ).fetchall()
         return jobs
 

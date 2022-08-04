@@ -17,7 +17,7 @@ class Job(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     started_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)
-    no_of_gpus: int = Field(default=None)
+    required_gpus: int = Field(default=None)
     weight: int = Field(default=None)
     no_of_migrations: int = Field(default=None)
 
