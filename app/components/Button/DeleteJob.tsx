@@ -13,23 +13,25 @@ import {
 } from "@chakra-ui/react";
 import { Button } from "@chakra-ui/react";
 import { DeleteIcon } from "@chakra-ui/icons";
+import { useRouter } from "next/router";
 
 function DeleteButton({ id }: { id: number }) {
     const toast = useToast()
-
+    const router = useRouter()
     const handleDeleteJob = async () => {
         const res = await fetch(`http://localhost:5000/jobs/${id}`, {
             method: "DELETE",
         });
-        window.location.reload();
-        const data = await res.json();
-        console.log(data);
+
         toast({
-            title: "Job deleted",
-            description: "The job has been deleted",
+            title: "Success",
+            description: "Job has been deleted",
             status: "success",
-            duration: 9000,
-        })
+            duration: 5000,
+            isClosable: true,
+        });
+
+        router.push("/jobs")
     };
 
     const { isOpen, onOpen, onClose } = useDisclosure();

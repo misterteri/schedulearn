@@ -8,14 +8,14 @@ import {
     Input,
     FormErrorMessage,
     Select,
+    useToast
 } from "@chakra-ui/react";
 import { Formik, Field } from "formik";
+import { useRouter } from 'next/router'
 
 export default function JobForm(): JSX.Element {
-    const handleSubmission = (values: any) => {
-        console.log(values);
-    };
-
+    const toast = useToast();
+    const router = useRouter();
     return (
         <Box
             pos="relative"
@@ -32,6 +32,7 @@ export default function JobForm(): JSX.Element {
                     command: "",
                     no_of_gpus: 0,
                 }}
+
                 onSubmit={async (values) => {
                     const res = await fetch("http://localhost:5000/jobs", {
                         method: "POST",
@@ -40,7 +41,16 @@ export default function JobForm(): JSX.Element {
                         },
                         body: JSON.stringify(values),
                     });
-                    console.log(res);
+                    if (res.status === 201) {
+                        toast({
+                            title: "Success",
+                            description: "Job has been created",
+                            status: "success",
+                            duration: 9000,
+                            isClosable: true,
+                        });
+                    }
+                    router.push("/jobs");
                 }}
             >
                 {({ handleSubmit, errors, touched }) => (
@@ -138,8 +148,8 @@ export default function JobForm(): JSX.Element {
                                 <FormLabel>Number of GPU</FormLabel>
                                 <Field
                                     as={Select}
-                                    id="requiredGPUs"
-                                    name="requiredGPUs"
+                                    id="no_of_gpus"
+                                    name="no_of_gpus"
                                     type="number"
                                     variant="filled"
                                     validate={(value: number) => {

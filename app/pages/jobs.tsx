@@ -2,22 +2,18 @@ import type { NextPage } from "next";
 import "../styles/Home.module.css";
 import { Heading } from "@chakra-ui/react";
 import Layout from "../components/Layout";
-import { useEffect, useState } from "react";
-import JobTable from "../components/JobTable";
+import JobTable from "../components/Table/Job";
 
-const Jobs: NextPage = () => {
-    const [jobs, setJobs] = useState([]);
+type Job = {
+    id: number;
+    name: string;
+    type: string;
+    container_image: string;
+    command: string;
+    no_of_gpus: number;
+};
 
-    useEffect(() => {
-        async function fetchJobs() {
-            const res = await fetch("http://localhost:5000/jobs");
-            const data = await res.json();
-            console.log(data);
-            setJobs(data);
-        }
-        fetchJobs();
-    }, []);
-
+const Jobs: NextPage = ({ jobs }: any) => {
     return (
         <Layout>
             <Heading as="h1">Jobs</Heading>
@@ -25,5 +21,16 @@ const Jobs: NextPage = () => {
         </Layout>
     );
 };
+
+export async function getStaticProps() {
+    const res = await fetch("http://localhost:5000/jobs");
+    const jobs = await res.json();
+
+    return {
+        props: {
+            jobs
+        },
+    };
+}
 
 export default Jobs;
