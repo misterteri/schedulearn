@@ -46,6 +46,9 @@ function DeleteButton({ id }: { id: number }) {
                 isRound
                 variant="ghost"
                 aria-label={""}
+                _hover={{
+                    bg: "red.300",
+                }}
             />
             <AlertDialog
                 motionPreset="slideInBottom"

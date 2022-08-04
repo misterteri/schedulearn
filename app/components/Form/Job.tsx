@@ -30,7 +30,7 @@ export default function JobForm(): JSX.Element {
                     type: "",
                     container_image: "",
                     command: "",
-                    no_of_gpus: 0,
+                    required_gpus: 0,
                 }}
 
                 onSubmit={async (values) => {
@@ -143,13 +143,13 @@ export default function JobForm(): JSX.Element {
                             </FormControl>
 
                             <FormControl
-                                isInvalid={!!errors.no_of_gpus && !!touched.no_of_gpus}
+                                isInvalid={!!errors.required_gpus && !!touched.required_gpus}
                             >
                                 <FormLabel>Number of GPU</FormLabel>
                                 <Field
                                     as={Select}
-                                    id="no_of_gpus"
-                                    name="no_of_gpus"
+                                    id="required_gpus"
+                                    name="required_gpus"
                                     type="number"
                                     variant="filled"
                                     validate={(value: number) => {
@@ -167,7 +167,7 @@ export default function JobForm(): JSX.Element {
                                     <option value="3">3</option>
                                     <option value="4">4</option>
                                 </Field>
-                                <FormErrorMessage>{errors.no_of_gpus}</FormErrorMessage>
+                                <FormErrorMessage>{errors.required_gpus}</FormErrorMessage>
                             </FormControl>
 
                             <Button

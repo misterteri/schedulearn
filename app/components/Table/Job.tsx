@@ -8,8 +8,11 @@ import {
     Table,
     Spinner,
     TableContainer,
+    useColorMode,
+    Link
 } from "@chakra-ui/react";
 import DeleteJob from "../Button/DeleteJob";
+import NextLink from "next/link";
 
 type Job = {
     id: number;
@@ -17,10 +20,16 @@ type Job = {
     type: string;
     container_image: string;
     command: string;
-    no_of_gpus: number;
+    required_gpus: number;
+    created_at: string;
+    started_at: string;
+    completed_at: string;
 };
 
 const JobTable = ({ jobs }: { jobs: Job[] }) => {
+    // get the current color mode
+    const { colorMode } = useColorMode();
+    const colorAccent = (colorMode === "dark") ? "500" : "200";
     return (
         // if jobs is empty, show "No jobs found"
         // if the jobs have not been loaded, show <Spinner />
@@ -45,18 +54,41 @@ const JobTable = ({ jobs }: { jobs: Job[] }) => {
                                 <Th>Type</Th>
                                 <Th>GPU(s)</Th>
                                 <Th>Container Image</Th>
-                                <Th>Command</Th>
                             </Tr>
                         </Thead>
                         <Tbody>
                             {jobs.map((job: Job) => (
-                                <Tr key={job.id}>
+                                <Tr
+                                    key={job.id}
+                                    // if job.created_at exists, but job.started_at does not, set the background color to red
+                                    // if job.created_at and job.completed_at exist, set the background color to blue.200
+                                    // if job.started_at and job.completed_at exist, set the background color to green.200
+                                    bg={
+                                        job.created_at && !job.started_at
+                                            ? `red.${colorAccent}`
+                                            : job.created_at && job.started_at && !job.completed_at
+                                                ? `blue.${colorAccent}`
+                                                : job.completed_at
+                                                    ? `green.${colorAccent}`
+                                                    : "white"
+                                    }
+                                >
                                     <Td><DeleteJob id={job.id} /></Td>
-                                    <Td>{job.name}</Td>
+                                    <Td>
+                                        <NextLink
+                                            href="/jobs/[id]"
+                                            as={`/jobs/${job.id}`}
+                                        >
+                                            <Link _hover={{
+                                                textDecoration: "underline",
+                                            }}>
+                                                {job.name}
+                                            </Link>
+                                        </NextLink>
+                                    </Td>
                                     <Td>{job.type}</Td>
-                                    <Td>{job.no_of_gpus}</Td>
+                                    <Td>{job.required_gpus}</Td>
                                     <Td>{job.container_image}</Td>
-                                    <Td>{job.command}</Td>
                                 </Tr>
                             ))}
                         </Tbody>
