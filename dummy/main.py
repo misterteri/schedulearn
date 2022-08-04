@@ -34,7 +34,7 @@ def on_startup():
     db.initialize()
 
 
-@app.post("/jobs", response_model=Job)
+@app.post("/jobs", response_model=Job, status_code=201)
 async def add_job(job: Job):
     # print out the job
     logger.info(f"Adding job: {job.dict()}")
@@ -44,7 +44,6 @@ async def add_job(job: Job):
         session.add(job)
         session.commit()
         session.refresh(job)
-        return job
 
 
 @app.get("/jobs")
@@ -69,7 +68,7 @@ async def get_job(id: int):
         return job
 
 
-@app.delete("/jobs/{id}")
+@app.delete("/jobs/{id}", status_code=204)
 async def kill_job(id: int):
     """
     If a model is on progress, delete the pod immediately, as well as the
