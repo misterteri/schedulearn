@@ -1,12 +1,26 @@
-from datetime import datetime
-import os
-from typing import Optional
-from typing import List
-
+import uuid
 import config
+from typing import List
+from typing import Optional
+from datetime import datetime
 from sqlmodel import Field, Relationship, SQLModel, Session, create_engine
 
 engine = create_engine(config.DB_URL, echo=True)
+
+class User(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    name: Optional[str]
+    email: str = Field(max_length=100, default="")
+    password: str = Field(max_length=100, default="")
+    department: Optional[str]
+    degree: Optional[str]
+    grade: Optional[int]
+    occupation: Optional[str]
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    token: Optional[str]
+    no_of_logins: int = Field(default=0)
+
 
 class Job(SQLModel, table=True):
     "Record of a job that has been scheduled"
@@ -15,10 +29,11 @@ class Job(SQLModel, table=True):
     type: str = Field(default=None)
     container_image: str = Field(default=None)
     command: str = Field(default=None)
+    trained_at: Optional[str]
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     started_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)
-    no_of_gpus: int = Field(default=None)
+    required_gpus: int = Field(default=None)
     weight: int = Field(default=None)
     no_of_migrations: int = Field(default=None)
 
@@ -37,7 +52,7 @@ class Gpu(SQLModel, table=True):
     "Keeps track of the GPU's unique name and the server it is connected to"
     id: Optional[int] = Field(primary_key=True, default=None)
     identifier: str = Field()
-
+    
     server_id: Optional[int] = Field(default=None, foreign_key="server.id")
     server: Optional[Server] = Relationship(back_populates="gpus")
 
