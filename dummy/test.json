@@ -1,7 +1,0 @@
-{
-    "name": "tensorflow-mnist",
-    "type": "TFJob",
-    "container_image": "horovod/horovod:latest",
-    "command": "horovodrun -np 1 -H localhost: 1 python ./tensorflow2/tensorflow2_mnist.py",
-    "no_of_gpus": "1"
-}
