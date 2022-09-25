@@ -1,18 +1,20 @@
-import type { NextPage } from 'next'
-import '../styles/Home.module.css'
-import { Heading } from '@chakra-ui/react'
-import Layout from '../components/Layout'
-import JobForm from '../components/Form/Job'
+import "../styles/Home.module.css";
+import { NextPage } from "next";
+import Layout from "../components/Layout/Main";
+import Heading from "../components/LandingPage/Heading";
+import Banner from "../components/LandingPage/Banner";
+import Howitworks from "../components/LandingPage/Howitworks";
+import Footer from "../components/LandingPage/Footer";
 
 const Home: NextPage = () => {
   return (
     <Layout>
-      <Heading as="h1">
-        Schedulearn
-      </Heading>
-      <JobForm />
+      <Heading />
+      <Banner />
+      <Howitworks />
+      <Footer />
     </Layout>
-  )
-}
+  );
+};
 
-export default Home
+export default Home;
