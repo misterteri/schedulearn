@@ -1,15 +1,37 @@
 from dataclasses import dataclass
 import os
 from typing import List
-
+import docker
 from dotenv import load_dotenv
 
 load_dotenv()
 
 PORT = os.getenv("PORT") or 5000
+DB_URL = os.getenv("DB_URL") or "sqlite:///database.db"
+
 GPU3_DOCKER_HOST = f"ssh://{os.environ.get('USERNAME')}@{os.environ.get('GPU3_IP')}"
 GPU4_DOCKER_HOST = f"ssh://{os.environ.get('USERNAME')}@{os.environ.get('GPU4_IP')}"
 GPU5_DOCKER_HOST = f"ssh://{os.environ.get('USERNAME')}@{os.environ.get('GPU5_IP')}"
+
+SECRET = "SUPER_STRONG_SECRET"
+
+GPU3_DOCKER_CLIENT = docker.DockerClient(
+    base_url=GPU3_DOCKER_HOST,
+    use_ssh_client=True,
+    tls=True,
+)
+
+GPU4_DOCKER_CLIENT = docker.DockerClient(
+    base_url=GPU4_DOCKER_HOST,
+    use_ssh_client=True,
+    tls=True,
+)
+
+GPU5_DOCKER_CLIENT = docker.DockerClient(
+    base_url=GPU5_DOCKER_HOST,
+    use_ssh_client=True,
+    tls=True
+)
 
 @dataclass
 class Gpu:
