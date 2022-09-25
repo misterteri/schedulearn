@@ -1,190 +1,237 @@
+import { Button } from "@chakra-ui/button";
 import {
-    Box,
-    useColorModeValue,
-    VStack,
-    FormControl,
-    FormLabel,
-    Button,
-    Input,
-    FormErrorMessage,
-    Select,
-    useToast
+  VStack,
+  Box,
+  RadioGroup,
+  Radio,
+  FormControl,
+  FormErrorMessage,
+  FormLabel,
+  Input,
+  Container,
+  Stack,
+  Text,
+  useToast
 } from "@chakra-ui/react";
-import { Formik, Field } from "formik";
-import { useRouter } from 'next/router'
+import { Field, Formik } from "formik";
+import { useRouter } from "next/router";
+import * as Yup from "yup";
 
-export default function JobForm(): JSX.Element {
-    const toast = useToast();
-    const router = useRouter();
-    return (
-        <Box
-            pos="relative"
-            p={10}
-            bg={useColorModeValue("white", "gray.700")}
-            rounded="lg"
-            boxShadow="lg"
+
+function App() {
+  const toast = useToast();
+  const router = useRouter();
+
+  return (
+    <Container maxW="7xl" p={{ base: 15, md: 10 }}>
+      <Box rounded="xl" height="100%" p={10} bgColor="#1B1B1B" boxShadow="lg">
+        <Formik
+          initialValues={{
+            name: "",
+            type: "",
+            container_image: "",
+            command: "",
+            required_gpus: "",
+          }}
+          validationSchema={Yup.object({
+            name: Yup.string()
+              .required("Job name required")
+              .min(10, "Job name should be at least 3 words"),
+
+            type: Yup.string().required("Job type is required"),
+
+            container_image: Yup.string()
+              .required("Job image required")
+              .min(10, "Job image should be at least 3 words"),
+
+            command: Yup.string()
+              .required("Job command required")
+              .min(10, "Job command should be at least 3 words"),
+
+            required_gpus: Yup.string().required("Number of GPU is required"),
+          })}
+          onSubmit={async (values) => {
+            const res = await fetch("http://localhost:5000/jobs", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+              },
+              body: JSON.stringify({
+                name: values.name,
+                type: values.type,
+                container_image: values.container_image,
+                command: values.command,
+                required_gpus: parseInt(values.required_gpus),
+              })
+            });
+
+            if (res.status === 201) {
+              toast({
+                title: "Success",
+                description: "Job has been created",
+                status: "success",
+                duration: 5000,
+                isClosable: true,
+              })
+            }
+
+            router.push("/jobs")
+          }}
         >
-            <Formik
-                initialValues={{
-                    name: "",
-                    type: "",
-                    container_image: "",
-                    command: "",
-                    required_gpus: 0,
-                }}
+          {(formik) => (
+            <form onSubmit={formik.handleSubmit}>
+              <VStack>
+                <FormControl
+                  isInvalid={!!formik.errors.name && !!formik.touched.name}
+                >
+                  <FormLabel>Job Name</FormLabel>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="e.g. Sun Flower training"
+                    {...formik.getFieldProps("name")}
+                    onChange={formik.handleChange}
+                    mb={3}
+                  />
+                  <FormErrorMessage>{formik.errors.name}</FormErrorMessage>
+                </FormControl>
 
-                onSubmit={async (values) => {
-                    const res = await fetch("http://localhost:5000/jobs", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(values),
-                    });
-                    if (res.status === 201) {
-                        toast({
-                            title: "Success",
-                            description: "Job has been created",
-                            status: "success",
-                            duration: 9000,
-                            isClosable: true,
-                        });
-                    }
-                    router.push("/jobs");
-                }}
-            >
-                {({ handleSubmit, errors, touched }) => (
-                    <form onSubmit={handleSubmit}>
-                        <VStack spacing={4} align="flex-start">
-                            <FormControl isInvalid={!!errors.name && !!touched.name}>
-                                <FormLabel>Job Name</FormLabel>
-                                <Field
-                                    as={Input}
-                                    id="name"
-                                    name="name"
-                                    type="text"
-                                    variant="filled"
-                                    placeholder="e.g. Sun Flower training"
-                                    validate={(value: string) => {
-                                        let error;
-                                        if (value.length < 3) {
-                                            error = "Job name should be at least 3 characters";
-                                        }
-                                        return error;
-                                    }}
-                                />
-                                <FormErrorMessage>{errors.name}</FormErrorMessage>
-                            </FormControl>
+                <FormControl
+                  isInvalid={!!formik.errors.type && !!formik.touched.type}
+                >
+                  <FormLabel>Job Type</FormLabel>
 
-                            <FormControl isInvalid={!!errors.type && !!touched.type}>
-                                <FormLabel>Job Type</FormLabel>
-                                <Field
-                                    as={Select}
-                                    id="type"
-                                    name="type"
-                                    variant="filled"
-                                    validate={(value: string) => {
-                                        let error;
-                                        //value must be chosen
-                                        if (value === "") {
-                                            error = "Job type is required";
-                                        }
-                                        return error;
-                                    }}
-                                >
-                                    <option value="">Select job type</option>
-                                    <option value="TensorFlow">TensorFlow</option>
-                                    <option value="Pytorch">Pytorch</option>
-                                    <option value="Keras">Keras</option>
-                                </Field>
-                                <FormErrorMessage>{errors.type}</FormErrorMessage>
-                            </FormControl>
+                  <RadioGroup id="type" {...formik.getFieldProps("type")}>
+                    <Stack spacing={2} direction="row" mb={3}>
+                      <Field
+                        as={Radio}
+                        type="radio"
+                        id="type"
+                        value="Tensorflow"
+                      />
+                      <Text>Tensorflow </Text>
+                      <Field as={Radio} type="radio" id="type" value="Keras" />
+                      <Text>Keras</Text>
+                      <Field as={Radio} type="radio" id="type" value="MXnet" />
+                      <Text>MXnet</Text>
+                      <Field
+                        as={Radio}
+                        type="radio"
+                        id="type"
+                        value="Pytorch"
+                      />
+                      <Text>Pytorch</Text>
+                    </Stack>
+                  </RadioGroup>
+                  <FormErrorMessage>{formik.errors.type}</FormErrorMessage>
+                </FormControl>
 
-                            <FormControl isInvalid={!!errors.container_image && !!touched.container_image}>
-                                <FormLabel>Job Image</FormLabel>
-                                <Field
-                                    as={Input}
-                                    id="container_image"
-                                    name="container_image"
-                                    type="text"
-                                    variant="filled"
-                                    placeholder="e.g. https://hub.docker.com/r/sunflowerai/sunflower-tf-gpu"
-                                    validate={(value: string) => {
-                                        let error;
-                                        //value cannot be empty
-                                        if (value.length < 1) {
-                                            error = "Job image is required";
-                                        }
-                                        return error;
-                                    }}
-                                />
-                                <FormErrorMessage>{errors.container_image}</FormErrorMessage>
-                            </FormControl>
+                <FormControl
+                  isInvalid={
+                    !!formik.errors.container_image &&
+                    !!formik.touched.container_image
+                  }
+                >
+                  <FormLabel>Job Image</FormLabel>
+                  <Input
+                    id="container_image"
+                    type="text"
+                    placeholder="e.g. https://hub.docker.com/r/sunflowerai/sunflower-tf-gpu"
+                    {...formik.getFieldProps("container_image")}
+                    onChange={formik.handleChange}
+                    mb={3}
+                  />
+                  <FormErrorMessage>
+                    {formik.errors.container_image}
+                  </FormErrorMessage>
+                </FormControl>
 
-                            <FormControl isInvalid={!!errors.command && !!touched.command}>
-                                <FormLabel>Job Command</FormLabel>
-                                <Field
-                                    as={Input}
-                                    id="command"
-                                    name="command"
-                                    type="text"
-                                    variant="filled"
-                                    placeholder="e.g. python train.py"
-                                    validate={(value: string) => {
-                                        let error;
-                                        //value cannot be empty
-                                        if (value.length < 1) {
-                                            error = "Command is required";
-                                        }
-                                        return error;
-                                    }}
-                                />
-                                <FormErrorMessage>{errors.command}</FormErrorMessage>
-                            </FormControl>
+                <FormControl
+                  isInvalid={
+                    !!formik.errors.command && !!formik.touched.command
+                  }
+                >
+                  <FormLabel>Job Command</FormLabel>
+                  <Input
+                    id="command"
+                    type="text"
+                    placeholder="e.g. python train.py"
+                    {...formik.getFieldProps("command")}
+                    onChange={formik.handleChange}
+                    mb={3}
+                  />
+                  <FormErrorMessage>{formik.errors.command}</FormErrorMessage>
+                </FormControl>
 
-                            <FormControl
-                                isInvalid={!!errors.required_gpus && !!touched.required_gpus}
-                            >
-                                <FormLabel>Number of GPU</FormLabel>
-                                <Field
-                                    as={Select}
-                                    id="required_gpus"
-                                    name="required_gpus"
-                                    type="number"
-                                    variant="filled"
-                                    validate={(value: number) => {
-                                        let error;
-                                        //input value need to be in range 1 until 4
-                                        if (value < 1 || value > 4) {
-                                            error = "Number of GPU is required";
-                                        }
-                                        return error;
-                                    }}
-                                >
-                                    <option value="">Select number of GPU</option>
-                                    <option value="1">1</option>
-                                    <option value="2">2</option>
-                                    <option value="3">3</option>
-                                    <option value="4">4</option>
-                                </Field>
-                                <FormErrorMessage>{errors.required_gpus}</FormErrorMessage>
-                            </FormControl>
+                <FormControl
+                  isInvalid={
+                    !!formik.errors.required_gpus &&
+                    !!formik.touched.required_gpus
+                  }
+                >
+                  <FormLabel>Number of GPU(s)</FormLabel>
+                  <RadioGroup
+                    id="required_gpus"
+                    {...formik.getFieldProps("required_gpus")}
+                  >
+                    <Stack spacing={2} direction="row" mb={3}>
+                      <Field
+                        as={Radio}
+                        type="radio"
+                        id="required_gpus"
+                        value="1"
+                      />
+                      <Text>1</Text>
+                      <Field
+                        as={Radio}
+                        type="radio"
+                        id="required_gpus"
+                        value="2"
+                      />
+                      <Text>2</Text>
+                      <Field
+                        as={Radio}
+                        type="radio"
+                        id="required_gpus"
+                        value="3"
+                      />
+                      <Text>3</Text>
+                      <Field
+                        as={Radio}
+                        type="radio"
+                        id="required_gpus"
+                        value="4"
+                      />
+                      <Text>4</Text>
+                    </Stack>
+                  </RadioGroup>
 
-                            <Button
-                                bg="blue.400"
-                                color="white"
-                                _hover={{
-                                    bg: "blue.500",
-                                }}
-                                rounded="md"
-                                type="submit"
-                            >
-                                Submit
-                            </Button>
-                        </VStack>
-                    </form>
-                )}
-            </Formik>
-        </Box>
-    );
+                  <FormErrorMessage>
+                    {formik.errors.required_gpus}
+                  </FormErrorMessage>
+                </FormControl>
+
+                <Button
+                  w={{ base: "100%", sm: "auto" }}
+                  h={12}
+                  px={6}
+                  rounded="3xl"
+                  mb={{ base: 2, sm: 0 }}
+                  bgColor="transparent"
+                  borderColor="gray.200"
+                  border="2px solid"
+                  type="submit"
+                >
+                  Submit
+                </Button>
+              </VStack>
+            </form>
+          )}
+        </Formik>
+      </Box>
+    </Container>
+  );
 }
+
+export default App;
