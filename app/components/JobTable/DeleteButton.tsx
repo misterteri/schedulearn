@@ -20,7 +20,7 @@ function DeleteButton({ id }: { id: number }) {
   const router = useRouter();
 
   const handleDeleteJob = async () => {
-    const res = await fetch(`http://localhost:8080/jobs/${id}`, {
+    const res = await fetch(`http://localhost:5000/jobs/${id}`, {
       method: "DELETE",
     });
 
@@ -32,7 +32,8 @@ function DeleteButton({ id }: { id: number }) {
       isClosable: true,
     });
 
-    router.push("/jobs");
+    // refresh the page
+    router.reload()
   };
 
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -66,7 +67,7 @@ function DeleteButton({ id }: { id: number }) {
           </AlertDialogBody>
           <AlertDialogFooter>
             <Button onClick={onClose}>No</Button>
-            <Button colorScheme="green" ml={3} onClick={handleDeleteJob}>
+            <Button colorScheme="green" ml={3} onClick={() => { handleDeleteJob(); onClose(); }}>
               Yes
             </Button>
           </AlertDialogFooter>
