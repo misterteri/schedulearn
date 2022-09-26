@@ -17,7 +17,7 @@ type Job = {
   type: string;
   container_image: string;
   command: string;
-  no_of_gpus: number;
+  required_gpus: number;
 };
 
 const JobTable = ({ jobs }: { jobs: Job[] }) => {
@@ -43,7 +43,6 @@ const JobTable = ({ jobs }: { jobs: Job[] }) => {
                 <Th>Type</Th>
                 <Th>GPU(s)</Th>
                 <Th>Container Image</Th>
-                <Th>Command</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -54,9 +53,8 @@ const JobTable = ({ jobs }: { jobs: Job[] }) => {
                   </Td>
                   <Td>{job.name}</Td>
                   <Td>{job.type}</Td>
-                  <Td>{job.no_of_gpus}</Td>
+                  <Td>{job.required_gpus}</Td>
                   <Td>{job.container_image}</Td>
-                  <Td>{job.command}</Td>
                 </Tr>
               ))}
             </Tbody>
