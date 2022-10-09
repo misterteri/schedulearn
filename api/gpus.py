@@ -35,7 +35,7 @@ def fetch_available_gpus(required_gpus: int) -> dict | None:
         available = [gpu for gpu in gpus if gpu.server == server and gpu.utilization < 90]
         if len(available) >= required_gpus:
             # return a dictionary with server and gpu ids
-            result = {'server': server, 'id': []}
+            result = {'server': server, 'gpus': []}
             for gpu in available[:required_gpus]:
-                result['id'].append(gpu.id)
+                result['gpus'].append(gpu.id)
             return result
