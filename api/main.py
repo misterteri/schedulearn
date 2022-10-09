@@ -114,7 +114,10 @@ async def user_logout(user: User):
 async def add_job(job: Job, background_tasks: BackgroundTasks):
     "Add a job to the scheduler"
     with Session(db.engine) as session:
-        job = db.Job(**job.dict())
+        # TODO: inconsistent job names
+        # After a job is posted, the job name will show "Tensorflow Mnist" in the table
+        # After a while, the job name will change to "tensorflow-mnist-{id}"
+        job = db.Job(**job.dict()) 
         session.add(job)
         session.commit()
         session.refresh(job)
@@ -154,7 +157,7 @@ async def get_job_logs(websocket: WebSocket, id: int):
         ).one()
     
     docker_client = get_docker_client(job.trained_at)
-    container = docker_client.containers.get(f"{job.name}-{job.id}".lower().replace(" ", "-"))
+    container = docker_client.containers.get(job.name)
     while True:
         for line in container.logs(stream=True, follow=True):
             await websocket.send_text(line.decode("ascii"))
