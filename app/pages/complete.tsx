@@ -1,12 +1,11 @@
 import { NextPage } from "next";
-import { Box, Text, Container } from "@chakra-ui/react";
 import Layout from "../components/Layout/Main";
+import { Box, Text, Container } from "@chakra-ui/react";
 
 const complete: NextPage = () => {
     return (
         <Layout>
             <Container my="8rem" maxW="xl" p={{ base: 5, md: 10 }}>
-
                 <Box textAlign="center" p={10} bgColor="#1B1B1B" boxShadow="lg" rounded="xl">
                     <Text as="h1" fontSize="4xl" color="white">
                         <strong>Check Your Email</strong>
