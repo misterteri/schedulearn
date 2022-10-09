@@ -29,7 +29,7 @@ def Run(new_job):
         shm_size = "1G",
         detach = True,
         environment = {
-            "NVIDIA_VISIBLE_DEVICES": ",".join(available_gpus['gpus']),
+            "NVIDIA_VISIBLE_DEVICES": f"{','.join([str(gpu) for gpu in available_gpus['gpus']])}",
         }
     )
 
