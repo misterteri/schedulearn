@@ -160,7 +160,7 @@ async def get_job_logs(websocket: WebSocket, id: int):
     container = docker_client.containers.get(job.name)
     while True:
         for line in container.logs(stream=True, follow=True):
-            await websocket.send_text(line.decode("ascii"))
+            await websocket.send_text(line.decode("utf-8"))
         break
     
     await websocket.close()
