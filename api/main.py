@@ -3,7 +3,7 @@ import uvicorn
 import logging
 
 import database as db
-from schedulearn import Run
+from schedulearn import Run, Remove
 from pydantic import EmailStr, BaseModel
 from dotenv import load_dotenv
 from logging.config import dictConfig
@@ -18,7 +18,6 @@ load_dotenv()
 dictConfig(config.LOGGING)
 logger = logging.getLogger("schedulearn")
 app = FastAPI(debug=True)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,8 +79,8 @@ async def user_login(login_user: User):
         if (user is None) or (not verify_password(login_user.password, user.password)):
             logging.warning("User does not exist")
             raise HTTPException(
-                status_code=400, 
-                detail="User does not exist"
+                status_code = 400, 
+                detail = "User does not exist"
             )
 
         user.token = encode_token(user.email)
@@ -177,8 +176,7 @@ async def kill_job(id: int, background_tasks: BackgroundTasks):
             .where(col(db.Job.id) == id)
         ).one()
 
-        # kill the container running the job
-        # ....
+        background_tasks.add_task(Remove, job)
 
         # delete the job from the database
         session.delete(job)
