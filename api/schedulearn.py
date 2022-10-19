@@ -1,11 +1,12 @@
 import datetime
 import database as db
-from gpus import fetch_available_gpus 
+from scheduler import FIFO 
 from sqlmodel import Session, select, col
 from lib import get_docker_client
 
+
 def Run(new_job):
-    available_gpus = fetch_available_gpus(new_job.required_gpus)
+    available_gpus = FIFO(new_job.required_gpus)
     docker_client = get_docker_client(available_gpus['server'])
 
     with Session(db.engine) as session:

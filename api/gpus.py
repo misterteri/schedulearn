@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 import subprocess
 import csv
-
-
+from config import SERVERS
 @dataclass(frozen=True)
 class Gpu:
     server: str
@@ -10,10 +9,6 @@ class Gpu:
     id: int
     name: str
     utilization: float
-
-
-SERVERS = ['gpu3', 'gpu4', 'gpu5']
-
 
 def fetch_all_gpus():
     gpus = []
@@ -27,15 +22,3 @@ def fetch_all_gpus():
             gpus.append(Gpu(server=server, uuid=stat[0], id=f"{i}", name=stat[1], utilization=float(stat[2].strip('%'))))
 
     return gpus
-
-
-def fetch_available_gpus(required_gpus: int) -> dict | None:
-    gpus = fetch_all_gpus()
-    for server in SERVERS:
-        available = [gpu for gpu in gpus if gpu.server == server and gpu.utilization < 90]
-        if len(available) >= required_gpus:
-            # return a dictionary with server and gpu ids
-            result = {'server': server, 'gpus': []}
-            for gpu in available[:required_gpus]:
-                result['gpus'].append(gpu.id)
-            return result
