@@ -12,7 +12,9 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from auth import hash_password, encode_token, verify_password
-from lib import get_docker_client
+from lib import get_docker_client, get_system_status
+from mail import send_email
+
 
 load_dotenv()
 dictConfig(config.LOGGING)
@@ -27,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class Job(BaseModel):
     name: str
     type: str
@@ -34,13 +37,44 @@ class Job(BaseModel):
     command: str
     required_gpus: int
 
+
 class User(BaseModel):
     email: EmailStr
     password: str
 
+
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
+    logger.info("API starting up...")
     db.initialize()
+    logger.info("Database initialized")
+    with Session(db.engine) as session:
+        # if the `Schedulearn` table is empty, create a new row
+        if session.exec(select(db.Schedulearn)).first() is None:
+            session.add(db.Schedulearn(
+                configuration="algorithm",
+                value="FIFO"
+            ))
+            session.add(
+                db.Schedulearn(
+                    configuration="last_server",
+                    value="gpu3"
+                )
+            )
+            session.add(
+                db.Schedulearn(
+                    configuration="next_server",
+                    value="gpu4"
+                )
+            )
+            session.commit()
+    logger.info("Default configuration added to database")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    logger.info("API shutting down...")
+
 
 @app.post("/signup")
 async def signup(user: User):
@@ -62,33 +96,37 @@ async def signup(user: User):
         session.add(
             db.User(
                 email=user.email, 
-                password=hash_password(user.password)
+                password=user.password
             )
         )
         session.commit()
         logging.info("User created")
         return JSONResponse(status_code=201, content={"message": "User created successfully"})
 
+
 @app.post("/signin")
 async def user_login(login_user: User):
     # check if the email exists in the database
     # if it does, return the user
     # if it does not, create a new user and return the user
+    
     with Session(db.engine) as session:
         user = session.exec(select(db.User).where(db.User.email == login_user.email)).first()
-        if (user is None) or (not verify_password(login_user.password, user.password)):
-            logging.warning("User does not exist")
-            raise HTTPException(
-                status_code = 400, 
-                detail = "User does not exist"
-            )
+        # if (user is None) or (not verify_password(login_user.password, user.password)):
+        #     logging.warning("User does not exist")
+        #     raise HTTPException(
+        #         status_code = 400, 
+        #         detail = "User does not exist"
+        #     )
 
-        user.token = encode_token(user.email)
-        session.commit()
-        session.refresh(user)
-        logging.info("A token created")
+        # user.token = encode_token(user.email)
+        # session.commit()
+        # session.refresh(user)
+        # logging.info("A token created")
+        result = await send_email(login_user.email)
+        print(result)
     
-    return JSONResponse(status_code=200, content={"username": user.name, "email": user.email, "token": user.token})
+    # return JSONResponse(status_code=200, content={"username": user.name, "email": user.email, "token": user.token})
 
 # user sign out
 @app.post("/signout")
@@ -124,6 +162,27 @@ async def add_job(job: Job, background_tasks: BackgroundTasks):
     background_tasks.add_task(Run, job)
     return JSONResponse(status_code=201, content={"message": "Job created successfully"})
 
+@app.put("/algorithm/{algorithm}")
+async def change_algorithm(algorithm: str):
+    "Change the scheduling algorithm"
+    with Session(db.engine) as session:
+        current_algorithm = session.exec(select(db.Schedulearn).where(db.Schedulearn.configuration == "algorithm")).first()
+        if algorithm.lower() == "fifo":
+            current_algorithm.value = "FIFO"
+            session.commit()
+            logging.info("Algorithm changed to FIFO")
+            return JSONResponse(status_code=200, content={"message": "Algorithm changed to FIFO"})
+        elif algorithm.lower() == "roundrobin":
+            current_algorithm.value = "RoundRobin"
+            session.commit()
+            logging.info("Algorithm changed to Round Robin")
+            return JSONResponse(status_code=200, content={"message": "Algorithm changed to Round Robin"})
+        else:
+            logging.warning("Invalid algorithm")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid algorithm"
+            )
 
 @app.get("/jobs")
 async def get_jobs():
@@ -131,10 +190,12 @@ async def get_jobs():
     with Session(db.engine) as session:
         jobs = session.exec(
             select(db.Job)
-            .order_by(col(db.Job.created_at).desc())
+            .order_by(
+                col(db.Job.created_at).desc()
+            )
         ).fetchall()
         return jobs
-
+        
 
 @app.get("/jobs/{id}")
 async def get_job(id: int):
@@ -146,6 +207,7 @@ async def get_job(id: int):
         ).one()
         return job
 
+
 @app.websocket("/jobs/{id}/logs")
 async def get_job_logs(websocket: WebSocket, id: int):
     await websocket.accept()
@@ -156,7 +218,7 @@ async def get_job_logs(websocket: WebSocket, id: int):
         ).one()
     
     docker_client = get_docker_client(job.trained_at)
-    container = docker_client.containers.get(job.name)
+    container = docker_client.containers.get(job.container_name)
     while True:
         for line in container.logs(stream=True, follow=True):
             await websocket.send_text(line.decode("utf-8"))
@@ -164,26 +226,15 @@ async def get_job_logs(websocket: WebSocket, id: int):
     
     await websocket.close()
 
-@app.delete("/jobs/{id}", status_code=204)
+
+@app.delete("/jobs/{id}", status_code=204,)
 async def kill_job(id: int, background_tasks: BackgroundTasks):
     """
     If a model is on progress, delete the pod immediately, as well as the
     metadata of a model in the database.
     """
-    with Session(db.engine) as session:
-        job = session.exec(
-            select(db.Job)
-            .where(col(db.Job.id) == id)
-        ).one()
-
-        background_tasks.add_task(Remove, job)
-
-        # delete the job from the database
-        session.delete(job)
-        session.commit()
-    
-    # kill the job in the background
-    return job
+    background_tasks.add_task(Remove, id)
+    return JSONResponse(content={"message": "Job deleted successfully"})
 
 
 if __name__ == "__main__":

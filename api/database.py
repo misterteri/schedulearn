@@ -1,4 +1,3 @@
-import uuid
 import config
 from typing import List
 from typing import Optional
@@ -7,8 +6,14 @@ from sqlmodel import Field, Relationship, SQLModel, Session, create_engine
 
 engine = create_engine(config.DB_URL, echo=True)
 
+class Schedulearn(SQLModel, table=True):
+    configuration: Optional[str] = Field(default="FIFO", primary_key=True)
+    value: Optional[str]
+
+
 class User(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    # automatically generate a random id
+    id: Optional[int] = Field(default=None, primary_key=True)
     name: Optional[str]
     email: str = Field(max_length=100, default="")
     password: str = Field(max_length=100, default="")
@@ -27,6 +32,7 @@ class Job(SQLModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     name: str = Field(default=None)
     type: str = Field(default=None)
+    container_name: str = Field(default=None)
     container_image: str = Field(default=None)
     command: str = Field(default=None)
     trained_at: Optional[str]
@@ -83,3 +89,6 @@ def initialize():
                 gpu = Gpu(identifier=g.identifier, server=server)
                 session.add(gpu)
         session.commit()
+
+def close():
+    engine.dispose()
