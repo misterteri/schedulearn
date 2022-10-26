@@ -9,7 +9,6 @@ load_dotenv()
 PORT = os.getenv("PORT") or 5000
 DB_URL = os.getenv("DB_URL") or "sqlite:///database.db"
 
-SERVERS = ['gpu3', 'gpu4', 'gpu5']
 GPU3_DOCKER_HOST = f"ssh://{os.environ.get('USERNAME')}@{os.environ.get('GPU3_IP')}"
 GPU4_DOCKER_HOST = f"ssh://{os.environ.get('USERNAME')}@{os.environ.get('GPU4_IP')}"
 GPU5_DOCKER_HOST = f"ssh://{os.environ.get('USERNAME')}@{os.environ.get('GPU5_IP')}"
