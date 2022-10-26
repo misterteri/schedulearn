@@ -15,6 +15,15 @@ class Gpu:
     utilization: float
 
 
+def get_docker_client(server: str):
+    if server == "gpu3":
+        return config.GPU3_DOCKER_CLIENT
+    elif server == "gpu4":
+        return config.GPU4_DOCKER_CLIENT
+    elif server == "gpu5":
+        return config.GPU5_DOCKER_CLIENT
+
+
 def get_gpus():
     gpus = []
     for server in ['gpu3', 'gpu4', 'gpu5']:
@@ -43,24 +52,6 @@ def get_cpu_utilization():
 
 def get_ram_utilization():
     return psutil.virtual_memory().percent
-
-
-def get_docker_client(server: str):
-    if server == "gpu3":
-        return config.GPU3_DOCKER_CLIENT
-    elif server == "gpu4":
-        return config.GPU4_DOCKER_CLIENT
-    elif server == "gpu5":
-        return config.GPU5_DOCKER_CLIENT
-
-
-def get_scheduler(scheduler: str):
-    if scheduler == "FIFO":
-        pass
-    elif scheduler == "AFSL":
-        pass
-    elif scheduler == "Tiresias":
-        pass
 
 
 def get_system_status():
