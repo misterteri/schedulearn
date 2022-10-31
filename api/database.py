@@ -7,7 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel, Session, create_engine
 engine = create_engine(config.DB_URL, echo=True)
 
 class Schedulearn(SQLModel, table=True):
-    configuration: Optional[str] = Field(default="FIFO", primary_key=True)
+    configuration: Optional[str] = Field(default="RoundRobin", primary_key=True)
     value: Optional[str]
 
 
