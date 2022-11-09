@@ -1,55 +1,113 @@
 # Schedulearn
 
-Schedulearn is contraction of "Scheduling Deep Learning", and the goal of this project is just exactly like the name.
-This project is intended to serve as my thesis project, and it's made on top of several tools:
+Schedulearn is a lightweight distributed deep learning system, and that name is a contraction of "Scheduling Deep Learning". This project is intended to serve as my thesis project, and it's made on top of Docker, FastAPI, and Horovod.
 
-1. Docker
-2. FastAPI
-3. Pydantic
-4. SQLModel
-5. Horovod
-
-## Setup
+# Setup
 
 1. Setup a Conda environment with the following packages
-
-```
-conda create -n schedulearn python=3.10
+```bash
+conda create -n schedulearn python=3.11
 conda activate schedulearn
 ```
 
-2. Install Docker and Flask's Python SDK
-```
-cd api
+2. Install the required dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-3. Install httpie
-```
+3. Install [httpie](https://httpie.io/)
+```bash
 brew install httpie # MacOS
 
 sudo apt install httpie # linux
 ```
 
 4. Run the API
-```
+```bash
+cd api
 python main.py
 ```
 
-4. Sending a POST request
+The API will be running on `http://localhost:5000`.
 
-First, you need to open a new tab in your terminal. 
-
-To create a new entry in the database, run:
-
-```
-http POST http://localhost:5000/api/v1/post name="tensorflow-mnist" type="TFJob" container_image="horovod/horovod:latest" command="horovodrun -np 1 -H localhost: 1 python ./tensorflow2/tensorflow2_mnist.py" no_of_gpus=1
-
-http --json POST http://localhost:5000/jobs < test.json 
+5. Start the web app
+```bash
+cd app
+npm install
+npm run dev
 ```
 
-To fetch all the jobs in the databse, run:
+The web app will be running on `http://localhost:3000`, and go to that link in your browser to see the user interface.
 
+# Usage
+
+To create a job with the user interface, go to `localhost:3000/dashboard`. Fill in the input forms and send the request. 
+
+To see all jobs in the system, go to `localhost:3000/jobs`.
+
+If you want to send a request with Python, do
+```python
+import requests
+r = requests.post(
+    'http://localhost:5000/jobs', 
+    json = {
+        "name": "Pytorch Mnist",
+        "type": "Pytorch",
+        "container_image": "nathansetyawan96/horovod",
+        "command": "python pytorch/pytorch_mnist.py",
+        "required_gpus": 4,
+    }
+)
 ```
-http GET :5000/jobs
+
+If you want to send a request with httpie, do
+```bash
+http post localhost:5000/jobs name="Pytorch Mnist" type="Pytorch" container_image="nathansetyawan96/horovod" command="python pytorch/pytorch_mnist.py" required_gpus=4
 ```
+
+If the server receives your request, it should show the following message.
+```bash
+HTTP/1.1 201 Created
+content-length: 38
+content-type: application/json
+date: Wed, 09 Nov 2022 15:03:41 GMT
+server: uvicorn
+
+{
+    "message": "Job created successfully"
+}
+```
+
+# Scheduling Algorithms
+
+For now, the existing scheduling algorithms are FIFO and Round Robin. If you want to change the scheduling algorithm, just send a simple request like:
+
+```bash
+http PUT localhost:5000/algorithm/fifo
+http PUT localhost:5000/algorithm/roundrobin
+```
+
+If the scheduling algorithm is changed successfully, it should show the following message.
+```bash
+HTTP/1.1 200 OK
+content-length: 39
+content-type: application/json
+date: Wed, 09 Nov 2022 15:04:57 GMT
+server: uvicorn
+
+{
+    "message": "Algorithm changed to FIFO"
+}
+```
+
+To make sure if the scheduling algorithm is changed, run the following code.
+```python
+import sqlite3
+import pandas as pd
+
+conn = sqlite3.connect("./api/database.db")
+df = pd.read_sql_query("SELECT * FROM schedulearn", conn)
+df
+```
+
+In the future, we will add more scheduling algorithms.
