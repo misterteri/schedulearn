@@ -2,7 +2,10 @@ import config
 import uvicorn
 import logging
 
+import time
+import asyncio
 import database as db
+from contextlib import suppress
 from schedulearn import Run, Remove
 from pydantic import EmailStr, BaseModel
 from dotenv import load_dotenv
@@ -12,7 +15,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from auth import hash_password, encode_token, verify_password
-from lib import get_docker_client, get_system_status
+from lib import get_docker_client, log_system_status
 from mail import send_email
 
 
@@ -43,13 +46,17 @@ class User(BaseModel):
     password: str
 
 
+async def log_system_status_task(filename: str):
+    while True:
+        log_system_status(filename)
+        time.sleep(5)
+
+
 @app.on_event("startup")
 async def on_startup():
     logger.info("API starting up...")
     db.initialize()
-    logger.info("Database initialized")
     with Session(db.engine) as session:
-        # if the `Schedulearn` table is empty, create a new row
         if session.exec(select(db.Schedulearn)).first() is None:
             session.add(db.Schedulearn(
                 configuration="algorithm",
@@ -68,98 +75,28 @@ async def on_startup():
                 )
             )
             session.commit()
-    logger.info("Default configuration added to database")
+            logger.info("Default configuration added to database")
+    logger.info("Database initialized")
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
     logger.info("API shutting down...")
-
-
-@app.post("/signup")
-async def signup(user: User):
-    # check if the email contains `@gapp.nthu.edu.tw`, `@cs.nthu.edu.tw`, or `@office365.nthu.edu.tw`
-    # if not, return 400
-    # if yes, check if the email is in the database
-    domains = ["@gapp.nthu.edu.tw", "@cs.nthu.edu.tw", "@office365.nthu.edu.tw"]
-    if not any(user.email.endswith(domain) for domain in domains):
-        logging.warning("Invalid email")
-        raise HTTPException(status_code=400, detail="Invalid email")
-
-    with Session(db.engine) as session:
-        if session.get(db.User, user.email):
-            logging.warning("Email already exists")
-            raise HTTPException(
-                status_code=400, 
-                detail="User already exists"
-            )
-        session.add(
-            db.User(
-                email=user.email, 
-                password=user.password
-            )
-        )
-        session.commit()
-        logging.info("User created")
-        return JSONResponse(status_code=201, content={"message": "User created successfully"})
-
-
-@app.post("/signin")
-async def user_login(login_user: User):
-    # check if the email exists in the database
-    # if it does, return the user
-    # if it does not, create a new user and return the user
-    
-    with Session(db.engine) as session:
-        user = session.exec(select(db.User).where(db.User.email == login_user.email)).first()
-        # if (user is None) or (not verify_password(login_user.password, user.password)):
-        #     logging.warning("User does not exist")
-        #     raise HTTPException(
-        #         status_code = 400, 
-        #         detail = "User does not exist"
-        #     )
-
-        # user.token = encode_token(user.email)
-        # session.commit()
-        # session.refresh(user)
-        # logging.info("A token created")
-        result = await send_email(login_user.email)
-        print(result)
-    
-    # return JSONResponse(status_code=200, content={"username": user.name, "email": user.email, "token": user.token})
-
-# user sign out
-@app.post("/signout")
-async def user_logout(user: User):
-    with Session(db.engine) as session:
-        user = session.exec(select(db.User).where(db.User.email == user.email)).first()
-        if user is None:
-            logging.warning("User does not exist")
-            raise HTTPException(
-                status_code=400, 
-                detail="User does not exist"
-            )
-
-        user.token = None
-        session.commit()
-        logging.info("A token deleted")
-    
-    return JSONResponse(status_code=200, content={"message": "User logged out successfully"})
+    loop = asyncio.get_event_loop()
+    loop.stop()
+    logger.info("All background tasks stopped")
 
 
 @app.post("/jobs", response_model=Job, status_code=201)
 async def add_job(job: Job, background_tasks: BackgroundTasks):
-    "Add a job to the scheduler"
-    with Session(db.engine) as session:
-        # TODO: inconsistent job names
-        # After a job is posted, the job name will show "Tensorflow Mnist" in the table
-        # After a while, the job name will change to "tensorflow-mnist-{id}"
-        job = db.Job(**job.dict()) 
-        session.add(job)
-        session.commit()
-        session.refresh(job)
-
+    # 1. check for the scheduling algorithm
+    # 2. check for the resource availability in the server
+    # 3. if the resource is available, add the job to the scheduler
+        # - if the 
+    # 4. if the resource is not available, return 400
+    logger.info("A training job is received")
     background_tasks.add_task(Run, job)
+    logger.info("A trainig job is added to the scheduler")
     return JSONResponse(status_code=201, content={"message": "Job created successfully"})
 
 @app.put("/algorithm/{algorithm}")
@@ -186,7 +123,6 @@ async def change_algorithm(algorithm: str):
 
 @app.get("/jobs")
 async def get_jobs():
-    "Get all jobs"
     with Session(db.engine) as session:
         jobs = session.exec(
             select(db.Job)
@@ -194,23 +130,25 @@ async def get_jobs():
                 col(db.Job.created_at).desc()
             )
         ).fetchall()
-        return jobs
-        
+    logger.info("All jobs are returned")
+    return jobs
+
 
 @app.get("/jobs/{id}")
 async def get_job(id: int):
-    "Get status of a job"
     with Session(db.engine) as session:
         job = session.exec(
             select(db.Job)
             .where(col(db.Job.id) == id)
         ).one()
-        return job
+    logger.info("A job is returned")
+    return job
 
 
 @app.websocket("/jobs/{id}/logs")
 async def get_job_logs(websocket: WebSocket, id: int):
     await websocket.accept()
+    logger.info("A websocket connection is established")
     with Session(db.engine) as session:
         job = session.exec(
             select(db.Job)
@@ -225,6 +163,7 @@ async def get_job_logs(websocket: WebSocket, id: int):
         break
     
     await websocket.close()
+    logger.info("A websocket connection is closed")
 
 
 @app.delete("/jobs/{id}", status_code=204,)
@@ -234,6 +173,7 @@ async def kill_job(id: int, background_tasks: BackgroundTasks):
     metadata of a model in the database.
     """
     background_tasks.add_task(Remove, id)
+    logger.info("A job is deleted")
     return JSONResponse(content={"message": "Job deleted successfully"})
 
 
