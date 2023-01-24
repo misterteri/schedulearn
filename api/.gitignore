@@ -5,3 +5,4 @@ __pycache__/
 output/*
 *.pyc
 database.db
+utilization.csv
