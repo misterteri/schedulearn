@@ -1,5 +1,10 @@
+import config
+import logging
+from logging.config import dictConfig
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 
+dictConfig(config.LOGGING)
+logger = logging.getLogger(__name__)
 conf = ConnectionConfig(
     MAIL_USERNAME = "scheduledeeplearning",
     MAIL_PASSWORD = "pnrdkxwgtnodewrf",

@@ -5,7 +5,6 @@ import logging
 import time
 import asyncio
 import database as db
-from contextlib import suppress
 from schedulearn import Run, Remove
 from pydantic import EmailStr, BaseModel
 from dotenv import load_dotenv
@@ -21,7 +20,7 @@ from mail import send_email
 
 load_dotenv()
 dictConfig(config.LOGGING)
-logger = logging.getLogger("schedulearn")
+logger = logging.getLogger(__name__)
 app = FastAPI(debug=True)
 
 app.add_middleware(
