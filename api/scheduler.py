@@ -1,7 +1,7 @@
-from lib import get_gpus
-import database as db
-from sqlmodel import Session, select, col
 import logging
+import database as db
+from lib import get_gpus
+from sqlmodel import Session, select, col
 
 def FIFO(required_gpus: int) -> dict | None:
     gpus = get_gpus()
@@ -16,7 +16,6 @@ def FIFO(required_gpus: int) -> dict | None:
     return
 
 def RoundRobin(required_gpus: int) -> dict | None:
-    print("RoundRobin called")
     result = {"server": "", "gpus": []}
     with Session(db.engine) as session:
         last_server = session.exec(
@@ -33,7 +32,6 @@ def RoundRobin(required_gpus: int) -> dict | None:
 
     for gpu in available[:required_gpus]:
         result['gpus'].append(gpu.id)
-    print("FLAG: ", result)
 
     with Session(db.engine) as session:
         last_server = session.exec(
@@ -60,10 +58,3 @@ def RoundRobin(required_gpus: int) -> dict | None:
         return result
     else:
         return None
-
-
-def AFSL():
-    pass
-
-def Tiresias():
-    pass
