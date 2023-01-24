@@ -1,7 +1,6 @@
 import csv
-import time
 import config
-import psutil
+import docker
 import subprocess
 from datetime import datetime
 from dataclasses import dataclass
@@ -13,9 +12,14 @@ class Gpu:
     id: int
     name: str
     utilization: float
+    memory_usage: int
+    timestamp: datetime
+
+    def __str__(self):
+        return f"{self.server},{self.uuid},{self.id},{self.name},{self.utilization},{self.memory_usage},{self.timestamp}"
 
 
-def get_docker_client(server: str):
+def get_docker_client(server: str) -> docker.DockerClient:
     if server == "gpu3":
         return config.GPU3_DOCKER_CLIENT
     elif server == "gpu4":
@@ -24,42 +28,37 @@ def get_docker_client(server: str):
         return config.GPU5_DOCKER_CLIENT
 
 
-def get_gpus():
+def get_gpus() -> list[Gpu]:
     gpus = []
     for server in ['gpu3', 'gpu4', 'gpu5']:
         result = subprocess.run(
-            f"ssh {server} nvidia-smi --query-gpu=uuid,gpu_name,utilization.gpu --format=csv,noheader".split(' '), 
+            f"ssh {server} nvidia-smi --query-gpu=uuid,gpu_name,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits".split(' '), 
             stdout = subprocess.PIPE
         ).stdout.decode('utf-8').splitlines()
         
         for i, stat in enumerate(csv.reader(result, delimiter=',')):
-            gpus.append(Gpu(server=server, uuid=stat[0], id=f"{i}", name=stat[1], utilization=float(stat[2].strip('%'))))
-
+            gpus.append(
+                Gpu(
+                    server=server, 
+                    uuid=stat[0], 
+                    id=f"{server}-{i}",
+                    name=stat[1], 
+                    utilization=float(stat[2].strip('%')), 
+                    memory_usage=int(int(stat[3])/int(stat[4])*100),
+                    timestamp=datetime.now()
+                )
+            )
     return gpus
 
 
-def get_gpu_utilization():
-    gpus = get_gpus()
-    utilizations = {}
-    for gpu in gpus:
-        utilizations[f"{gpu.server}-{gpu.id}"] = gpu.utilization
-    return utilizations
-
-
-def get_cpu_utilization():
-    return psutil.cpu_percent()
-
-
-def get_ram_utilization():
-    return psutil.virtual_memory().percent
-
-
-def get_system_status():
-    with open('utilization.csv', 'a') as f:
+def log_system_status(filename: str) -> None:
+    with open(filename, 'a') as f:
+        gpus = get_gpus()
         if f.tell() == 0:
-            f.write('time,gpu3-0,gpu3-1,gpu3-2,gpu3-3,gpu4-0,gpu4-1,gpu4-2,gpu4-3,gpu5-0,gpu5-1,gpu5-2,gpu5-3,cpu,ram\n')
-
-        while True:
-            gpu_utilization = get_gpu_utilization()
-            f.write(f"{datetime.now()},{gpu_utilization['gpu3-0']},{gpu_utilization['gpu3-1']},{gpu_utilization['gpu3-2']},{gpu_utilization['gpu3-3']},{gpu_utilization['gpu4-0']},{gpu_utilization['gpu4-1']},{gpu_utilization['gpu4-2']},{gpu_utilization['gpu4-3']},{gpu_utilization['gpu5-0']},{gpu_utilization['gpu5-1']},{gpu_utilization['gpu5-2']},{gpu_utilization['gpu5-3']},{get_cpu_utilization()},{get_ram_utilization()}\n")
-            time.sleep(2)
+            f.write(
+                f"time,{','.join([gpu.id for gpu in gpus])}\n"
+            )
+        else: 
+            f.write(
+                f"{datetime.now()},{','.join([str(gpu.memory_usage) for gpu in gpus])}\n"
+            )
