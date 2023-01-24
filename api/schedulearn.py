@@ -2,9 +2,8 @@ import datetime
 import database as db
 from scheduler import FIFO, RoundRobin
 from sqlmodel import Session, select, col
-from lib import get_docker_client
+from lib import get_docker_client, get_gpus
 import uuid
-
 
 def Run(new_job):
     with Session(db.engine) as session:
@@ -22,20 +21,18 @@ def Run(new_job):
     docker_client = get_docker_client(available_gpus['server'])
 
     with Session(db.engine) as session:
-        job = session.exec(
-            select(db.Job)
-            .where(col(db.Job.id) == new_job.id)
-        ).one()
-        job.name = new_job.name
-        job.container_name = f"{new_job.name}-{uuid.uuid4()}".lower().replace(" ", "-")
-        job.container_image = new_job.container_image
-        job.required_gpus = new_job.required_gpus
-        job.command = new_job.command
-        job.trained_at = available_gpus['server']
-        job.started_at = datetime.datetime.now()
-
+        job_name = f"{new_job.name.lower().replace(' ', '-')}-{uuid.uuid4()}"
+        job = db.Job(
+            name = job_name,
+            type = job.type,
+            container_image = job.container_image,
+            command = job.command,
+            required_gpus = job.required_gpus,
+            trained_at = available_gpus['server'],
+        )
+        
         container = docker_client.containers.run(
-            name = job.container_name,
+            name = job.name,
             image = job.container_image, 
             command = f"horovodrun -np {job.required_gpus} -H localhost:{job.required_gpus} {job.command}",
             shm_size = "1G",
@@ -45,6 +42,13 @@ def Run(new_job):
             }
         )
 
+        # update the started_at
+        job.started_at = datetime.datetime.now()
+
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+
         status = container.wait()
 
         # if error does not occur inside the docker
@@ -53,10 +57,9 @@ def Run(new_job):
             session.commit()
             session.refresh(job)
             # save the output in the `output` folder
-            with open(f"output/{job.name}.txt", "w") as f:
+            with open(f"output/{(job.type).lower()}/{job.container_name}.txt", "w") as f:
                 # convert the output from bytes to string and write to file
                 f.write(container.logs().decode("utf-8"))
-            return status
 
 
 def Remove(id):
