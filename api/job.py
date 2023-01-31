@@ -1,0 +1,183 @@
+import config
+import logging
+import datetime
+import database as db
+from dataclasses import dataclass
+from fastapi import BackgroundTasks
+from logging.config import dictConfig
+from sqlmodel import Session, select, col
+from lib import get_docker_client, get_most_available_gpus
+
+dictConfig(config.LOGGING)
+logger = logging.getLogger(__name__)
+
+@dataclass
+class Destination:
+    server: str
+    gpus: list[int]
+
+
+def run_job(job: db.Job, destination: Destination, background_tasks: BackgroundTasks):
+    docker_client = get_docker_client(destination.server)
+
+    with Session(db.engine) as session:
+        container = docker_client.containers.run(
+            name = job.container_name,
+            image = job.container_image, 
+            command = f"horovodrun -np {job.required_gpus} -H localhost:{job.required_gpus} {job.command}",
+            shm_size = "1G",
+            detach = True,
+            environment = {
+                # "NVIDIA_VISIBLE_DEVICES": f"{','.join([str(gpu) for gpu in destination.gpus])}",
+                "NVIDIA_VISIBLE_DEVICES": "all",
+            }
+        )
+        job.server_id = destination.server
+        job.started_at = datetime.datetime.now()
+        job.estimated_completion_time = datetime.datetime.now() + datetime.timedelta(seconds=estimate_job_duration(job))
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        logger.info(f"Job {job.name} metadata updated")
+
+        logger.info(f"Container {job.name} created")
+        status = container.wait()
+
+        # if error does not occur inside the docker
+        if status.get('StatusCode') == 0:
+            job.completed_at = datetime.datetime.now()
+            session.commit()
+            session.refresh(job)
+            logger.info(f"Job {job.name} completed")
+            with open(f"output/{(job.type).lower()}/{job.container_name}.txt", "w") as f:
+                f.write(container.logs().decode("utf-8"))
+                logger.info(f"Output of {job.name} saved to file")
+            background_tasks.add_task(autoscale, background_tasks)
+        elif status.get('StatusCode') == 1:
+            logger.info(f"Container {job.name}: [Errno 1] Application error")
+            container.remove()
+        elif status.get('StatusCode') == 2:
+            logger.info(f"Container {job.name}: [Errno 2] No such file or directory")
+            container.remove()
+
+
+def estimate_job_duration(job: db.Job):
+    """
+        Estimate the duration of a job in seconds.
+    """
+    with Session(db.engine) as session:
+        similar_jobs = session.exec(
+            select(db.Job)
+            .where(col(db.Job.type) == job.type)
+            .where(col(db.Job.required_gpus) == job.required_gpus)
+            .where(col(db.Job.name).like(f"{job.name}%"))
+        ).all()
+
+        avg_duration = 0
+
+        for similar_job in similar_jobs:
+            if similar_job.estimated_completion_time and similar_job.started_at:
+                avg_duration += (similar_job.estimated_completion_time - similar_job.started_at).seconds
+
+        avg_duration = avg_duration / len(similar_jobs)
+        logger.info(f"Estimated duration of {job.name} is {avg_duration} seconds")
+        return avg_duration if avg_duration else 300
+
+
+def remove_job(id: int):
+    """
+        Remove a job with the given id from the 
+        database and from the training server.
+    """
+    with Session(db.engine) as session:
+        job = session.exec(
+            select(db.Job)
+            .where(col(db.Job.id) == id)
+        ).one()
+
+    docker_client = get_docker_client(job.trained_at)
+    container = docker_client.containers.get(job.container_name)
+
+    if container: 
+        container.remove()
+        logger.info(f"Container {job.container_name} removed")
+    else:
+        logger.error(f"Container {job.container_name} does not exist")
+
+    session.delete(job)
+    session.commit()
+    logger.info(f"Job {job.name} removed from the database")
+
+
+def kill_job(id):
+    """
+        Kill a job with the given id without 
+        removing the job from the database.
+    """
+    with Session(db.engine) as session:
+        job = session.exec(
+            select(db.Job)
+            .where(col(db.Job.id) == id)
+        ).one()
+
+    docker_client = get_docker_client(job.trained_at)
+    container = docker_client.containers.get(job.container_name)
+
+    if not container:
+        logger.error(f"Container {job.container_name} does not exist")
+        return
+
+    container.kill()
+    logger.info(f"Container {job.container_name} killed")
+
+    job.server_id = None
+    session.commit()
+    session.refresh(job)
+    logger.info(f"Job {job.name} killed")
+
+
+def migrate_job(id: int, background_tasks: BackgroundTasks):
+    """
+        Move a job from one server to another.
+        This function takes two parameters:
+        1. id: the id of the job to be moved
+        2. destination: the server to move the job to
+    """
+    destination = get_most_available_gpus()
+    with Session(db.engine) as session:
+        job = session.exec(
+            select(db.Job)
+            .where(col(db.Job.id) == id)
+        ).one()
+
+        # update the job required gpus to the number of gpus available on the destination server
+        job.required_gpus = len(destination.gpus)
+
+        job.no_of_migrations += 1
+        session.commit()
+        session.refresh(job)
+        logger.info(f"Job {job.name} metadata updated")
+    background_tasks.add_task(run_job, job, destination, background_tasks)
+
+
+def autoscale(background_tasks: BackgroundTasks):
+    """
+        Initiate migration of jobs to other servers.
+        Migration is killing a job and rescheduling it on another server with more resources.
+        This function is called every 1 minutes or when a job is finished.
+    """
+
+    with Session(db.engine) as session:
+        slowest_job = session.exec(
+            select(db.Job)
+            .where(col(db.Job.started_at) != None)
+            .where(col(db.Job.completed_at) == None)
+            .order_by(col(db.Job.started_at).asc())
+        ).one()
+
+    # Prevent the jobs that are almost finished from being migrated
+    if slowest_job.duration - (datetime.datetime.now() - slowest_job.started_at).seconds < 120:
+        return
+    
+    kill_job(slowest_job.id)
+    background_tasks.add_task(migrate_job, slowest_job.id, background_tasks)

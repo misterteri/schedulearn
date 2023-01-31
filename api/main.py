@@ -1,21 +1,20 @@
+import uuid
+import time
 import config
 import uvicorn
 import logging
-
-import time
 import asyncio
 import database as db
-from schedulearn import Run, Remove
-from pydantic import EmailStr, BaseModel
 from dotenv import load_dotenv
+from job import run_job, remove_job
 from logging.config import dictConfig
+from scheduler import FIFO, RoundRobin
+from pydantic import EmailStr, BaseModel
 from sqlmodel import Session, select, col
-from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from auth import hash_password, encode_token, verify_password
 from lib import get_docker_client, log_system_status
-from mail import send_email
+from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
 
 
 load_dotenv()
@@ -54,7 +53,9 @@ async def log_system_status_task(filename: str):
 @app.on_event("startup")
 async def on_startup():
     logger.info("API starting up...")
-    db.initialize()
+    db.create_tables()
+    db.create_servers()
+    db.create_gpus()
     with Session(db.engine) as session:
         if session.exec(select(db.Schedulearn)).first() is None:
             session.add(db.Schedulearn(
@@ -87,15 +88,53 @@ async def on_shutdown():
 
 
 @app.post("/jobs", response_model=Job, status_code=201)
-async def add_job(job: Job, background_tasks: BackgroundTasks):
-    # 1. check for the scheduling algorithm
-    # 2. check for the resource availability in the server
-    # 3. if the resource is available, add the job to the scheduler
-        # - if the 
-    # 4. if the resource is not available, return 400
-    logger.info("A training job is received")
-    background_tasks.add_task(Run, job)
-    logger.info("A trainig job is added to the scheduler")
+async def add_job(new_job: Job, background_tasks: BackgroundTasks):
+    with Session(db.engine) as session:
+        scheduling_algorithm = session.exec(
+            select(db.Schedulearn)
+            .where(col(db.Schedulearn.configuration) == "algorithm")
+        ).first()
+
+        job = db.Job(
+            name = new_job.name,
+            type = new_job.type,
+            container_name=f"{new_job.name.lower().replace(' ', '-')}-{uuid.uuid4()}",
+            container_image = new_job.container_image,
+            command = new_job.command,
+            required_gpus = new_job.required_gpus
+        )
+
+        session.add(job)
+        session.commit()
+        logger.info(f"Job {job.name} added to the database")
+
+        if scheduling_algorithm.value == "FIFO":
+            destination = FIFO(job.required_gpus)
+            logger.info(f"Return {len(destination.gpus)} GPUs at server {destination.server} with FIFO")
+            background_tasks.add_task(run_job, job, destination, background_tasks)
+
+        if scheduling_algorithm.value == "RoundRobin":
+            destination = RoundRobin(job.required_gpus)
+            logger.info(f"Return {len(destination.gpus)} GPUs at server {destination.server} with RoundRobin")
+            background_tasks.add_task(run_job, job, destination, background_tasks)
+            
+        # if scheduling_algorithm.value == "SRJF", always sort the jobs that has started_at == None
+        # A job duration is determined by job.estimated_completion_time - job.started_at
+        # Sort the jobs by the duration from shortest to longest
+        # Run the job with the shortest duration
+        if scheduling_algorithm.value == "SRJF":
+            with Session(db.engine) as session:
+                jobs = session.exec(
+                    select(db.Job)
+                    .where(col(db.Job.started_at) == None)
+                    .order_by(col(db.Job.estimated_completion_time) - col(db.Job.started_at))
+                ).all()
+                for job in jobs:
+                    destination = FIFO(job.required_gpus)
+                    logger.info(f"Return {len(destination.gpus)} GPUs at server {destination.server} with Short Remaining Job First")
+                    background_tasks.add_task(run_job, job, destination, background_tasks)
+
+    logger.info("A training job is added to the scheduler")
     return JSONResponse(status_code=201, content={"message": "Job created successfully"})
 
 @app.put("/algorithm/{algorithm}")
@@ -171,7 +210,7 @@ async def kill_job(id: int, background_tasks: BackgroundTasks):
     If a model is on progress, delete the pod immediately, as well as the
     metadata of a model in the database.
     """
-    background_tasks.add_task(Remove, id)
+    background_tasks.add_task(remove_job, id)
     logger.info("A job is deleted")
     return JSONResponse(content={"message": "Job deleted successfully"})
 
