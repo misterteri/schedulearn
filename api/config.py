@@ -1,8 +1,8 @@
-from dataclasses import dataclass
 import os
-from typing import List
 import docker
+from typing import List
 from dotenv import load_dotenv
+from dataclasses import dataclass
 
 load_dotenv()
 
