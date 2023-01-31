@@ -14,8 +14,8 @@ class Server(SQLModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     host_name: str = Field(default=None)
 
-    jobs: List["Job"] = Relationship(back_populates="server")
-    gpus: List["Gpu"] = Relationship(back_populates="server")
+    # jobs: List["Job"] = Relationship(back_populates="server")
+    # gpus: List["Gpu"] = Relationship(back_populates="server")
 
 
 class Gpu(SQLModel, table=True):
@@ -24,10 +24,10 @@ class Gpu(SQLModel, table=True):
     identifier: str = Field(default=None)
     name: str = Field(default=None)
 
-    jobs: List["Job"] = Relationship(back_populates="gpu")
+    # jobs: List["Job"] = Relationship(back_populates="gpu")
 
-    server_id: Optional[int] = Field(default=None, foreign_key="server.id")
-    server: Optional["Server"] = Relationship(back_populates="gpus")
+    # server_id: Optional[int] = Field(default=None, foreign_key="server.id")
+    # server: Optional["Server"] = Relationship(back_populates="gpus")
 
 
 class User(SQLModel, table=True):
@@ -58,11 +58,12 @@ class Job(SQLModel, table=True):
     estimated_completion_time: Optional[datetime] = Field(default=None)
     required_gpus: int = Field(default=None)
     no_of_migrations: int = Field(default=None)
-    server_id: Optional[int] = Field(default=None, foreign_key="server.id")
-    server: Optional[Server] = Relationship(back_populates="gpus")
 
-    gpu_id: Optional[int] = Field(default=None, foreign_key="gpu.id")
-    gpu: Optional[Gpu] = Relationship(back_populates="jobs")
+    # server_id: Optional[int] = Field(default=None, foreign_key="server.id")
+    # server: Optional[Server] = Relationship(back_populates="gpus")
+
+    # gpu_id: Optional[int] = Field(default=None, foreign_key="gpu.id")
+    # gpu: Optional[Gpu] = Relationship(back_populates="jobs")
 
 
 def create_tables():
