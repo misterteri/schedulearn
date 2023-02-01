@@ -58,6 +58,7 @@ class Job(SQLModel, table=True):
     estimated_completion_time: Optional[datetime] = Field(default=None)
     required_gpus: int = Field(default=None)
     no_of_migrations: int = Field(default=None)
+    trained_at: Optional[str] = Field(default=None)
 
     # server_id: Optional[int] = Field(default=None, foreign_key="server.id")
     # server: Optional[Server] = Relationship(back_populates="gpus")
