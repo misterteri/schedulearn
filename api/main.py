@@ -3,9 +3,9 @@ import time
 import config
 import uvicorn
 import logging
-import asyncio
 import database as db
 from dotenv import load_dotenv
+from lib import get_docker_client
 from job import run_job, remove_job
 from logging.config import dictConfig
 from scheduler import FIFO, RoundRobin
@@ -13,7 +13,6 @@ from pydantic import EmailStr, BaseModel
 from sqlmodel import Session, select, col
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from lib import get_docker_client, log_system_status
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
 
 
@@ -44,12 +43,6 @@ class User(BaseModel):
     password: str
 
 
-async def log_system_status_task(filename: str):
-    while True:
-        log_system_status(filename)
-        time.sleep(5)
-
-
 @app.on_event("startup")
 async def on_startup():
     logger.info("API starting up...")
@@ -77,14 +70,11 @@ async def on_startup():
             session.commit()
             logger.info("Default configuration added to database")
     logger.info("Database initialized")
-
+    logger.info("API running on http://localhost:5000")
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    logger.info("API shutting down...")
-    loop = asyncio.get_event_loop()
-    loop.stop()
-    logger.info("All background tasks stopped")
+    logger.info("API shutting down")
 
 
 @app.post("/jobs", response_model=Job, status_code=201)
@@ -101,7 +91,8 @@ async def add_job(new_job: Job, background_tasks: BackgroundTasks):
             container_name=f"{new_job.name.lower().replace(' ', '-')}-{uuid.uuid4()}",
             container_image = new_job.container_image,
             command = new_job.command,
-            required_gpus = new_job.required_gpus
+            required_gpus = new_job.required_gpus,
+            no_of_migrations=0,
         )
 
         session.add(job)
@@ -118,10 +109,6 @@ async def add_job(new_job: Job, background_tasks: BackgroundTasks):
             logger.info(f"Return {len(destination.gpus)} GPUs at server {destination.server} with RoundRobin")
             background_tasks.add_task(run_job, job, destination, background_tasks)
             
-        # if scheduling_algorithm.value == "SRJF", always sort the jobs that has started_at == None
-        # A job duration is determined by job.estimated_completion_time - job.started_at
-        # Sort the jobs by the duration from shortest to longest
-        # Run the job with the shortest duration
         if scheduling_algorithm.value == "SRJF":
             with Session(db.engine) as session:
                 jobs = session.exec(
