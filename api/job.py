@@ -32,7 +32,7 @@ def run_job(job: db.Job, destination: Destination, background_tasks: BackgroundT
                 "NVIDIA_VISIBLE_DEVICES": "all",
             }
         )
-        job.server_id = destination.server
+        job.trained_at = destination.server
         job.started_at = datetime.datetime.now()
         job.estimated_completion_time = datetime.datetime.now() + datetime.timedelta(seconds=estimate_job_duration(job))
         session.add(job)
@@ -56,9 +56,11 @@ def run_job(job: db.Job, destination: Destination, background_tasks: BackgroundT
         elif status.get('StatusCode') == 1:
             logger.info(f"Container {job.name}: [Errno 1] Application error")
             container.remove()
+            background_tasks.add_task(autoscale, background_tasks)
         elif status.get('StatusCode') == 2:
             logger.info(f"Container {job.name}: [Errno 2] No such file or directory")
             container.remove()
+            background_tasks.add_task(autoscale, background_tasks)
 
 
 def estimate_job_duration(job: db.Job):
@@ -70,7 +72,7 @@ def estimate_job_duration(job: db.Job):
             select(db.Job)
             .where(col(db.Job.type) == job.type)
             .where(col(db.Job.required_gpus) == job.required_gpus)
-            .where(col(db.Job.name).like(f"{job.name}%"))
+            .where(col(db.Job.name).like(f"{job.name}"))
         ).all()
 
         avg_duration = 0
@@ -118,22 +120,27 @@ def kill_job(id):
         job = session.exec(
             select(db.Job)
             .where(col(db.Job.id) == id)
+            .where(col(db.Job.completed_at) == None)
         ).one()
 
     docker_client = get_docker_client(job.trained_at)
-    container = docker_client.containers.get(job.container_name)
+    # get a list of all containers
+    containers = docker_client.containers.list(all=True)
 
-    if not container:
-        logger.error(f"Container {job.container_name} does not exist")
+    # if the job.container_name not in the list of containers, return
+    if job.container_name not in [container.name for container in containers]:
+        logger.info(f"Container {job.container_name} does not exist")
         return
+    else:
+        container = docker_client.containers.get(job.container_name)
+        container.stop()
+        container.remove()
+        logger.info(f"Container {job.container_name} stopped and removed")
 
-    container.kill()
-    logger.info(f"Container {job.container_name} killed")
-
-    job.server_id = None
-    session.commit()
-    session.refresh(job)
-    logger.info(f"Job {job.name} killed")
+        job.trained_at = None
+        session.commit()
+        session.refresh(job)
+        logger.info(f"Job {job.name} killed")
 
 
 def migrate_job(id: int, background_tasks: BackgroundTasks):
@@ -157,6 +164,7 @@ def migrate_job(id: int, background_tasks: BackgroundTasks):
         session.commit()
         session.refresh(job)
         logger.info(f"Job {job.name} metadata updated")
+    logger.info(f"Job {job.name} migrated to {destination.server}")
     background_tasks.add_task(run_job, job, destination, background_tasks)
 
 
@@ -168,16 +176,18 @@ def autoscale(background_tasks: BackgroundTasks):
     """
 
     with Session(db.engine) as session:
-        slowest_job = session.exec(
+        slowest_jobs = session.exec(
             select(db.Job)
             .where(col(db.Job.started_at) != None)
             .where(col(db.Job.completed_at) == None)
             .order_by(col(db.Job.started_at).asc())
-        ).one()
-
-    # Prevent the jobs that are almost finished from being migrated
-    if slowest_job.duration - (datetime.datetime.now() - slowest_job.started_at).seconds < 120:
-        return
-    
-    kill_job(slowest_job.id)
-    background_tasks.add_task(migrate_job, slowest_job.id, background_tasks)
+        ).all()
+        
+        if slowest_jobs == []:
+            return
+        else:
+            slowest_job = slowest_jobs[0]
+            if (slowest_job.estimated_completion_time - datetime.datetime.now()).seconds < 120:
+                return
+            kill_job(slowest_job.id)
+            background_tasks.add_task(migrate_job, slowest_job.id, background_tasks)
