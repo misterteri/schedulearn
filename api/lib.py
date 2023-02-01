@@ -89,10 +89,10 @@ def get_available_gpus(required_gpus: int) -> Destination:
     for server in ['gpu3', 'gpu4', 'gpu5']:
         available_gpus = []
         for gpu in get_gpus():
-            if gpu.server == server and gpu.memory_usage < 80:
+            if gpu.server == server and gpu.memory_usage < 50:
                 available_gpus.append(gpu)
         # Get the first server seen with enough available GPUs
-        if len(available_gpus) >= required_gpus:
+        if len(available_gpus) == required_gpus:
             destination.server = server
             destination.gpus = [gpu.id for gpu in available_gpus]
             break
@@ -115,7 +115,7 @@ def get_most_available_gpus() -> Destination:
     for server in ['gpu3', 'gpu4', 'gpu5']:
         available_gpus = []
         for gpu in get_gpus():
-            if gpu.server == server and gpu.memory_usage < 80:
+            if gpu.server == server and gpu.memory_usage < 50:
                 available_gpus.append(gpu)
         # Get the server with the most available GPUs
         if len(available_gpus) > len(destination.gpus):
@@ -139,7 +139,7 @@ def get_available_gpus_at(destination_server: str, required_gpus: int | None) ->
     """
     destination = Destination(server=destination_server, gpus=[])
     for gpu in get_gpus():
-        if gpu.server == destination_server and gpu.memory_usage < 80 and len(destination.gpus) < required_gpus:
+        if gpu.server == destination_server and gpu.memory_usage < 50 and len(destination.gpus) < required_gpus:
             destination.gpus.append(gpu.id)
     return destination
 
@@ -164,34 +164,3 @@ def log_system_status(filename: str) -> None:
             f.write(
                 f"{datetime.now()},{','.join([str(gpu.memory_usage) for gpu in gpus])}\n"
             )
-
-
-# def estimate_training_time(
-#     model: str, 
-#     dataset: str, 
-#     batch_size: int, 
-#     num_epochs: int, 
-#     num_gpus: int, 
-#     num_workers: int
-# ) -> int:
-#     """
-#         Estimate the time it will take to train a model.
-
-#         Args:
-#             model (str): The name of the model
-#             dataset (str): The name of the dataset
-#             batch_size (int): The batch size
-#             num_epochs (int): The number of epochs
-#             num_gpus (int): The number of GPUs
-#             num_workers (int): The number of workers
-
-#         Return:
-#             int: The estimated time in seconds
-#     """
-#     # Get the number of training samples
-#     num_samples = config.DATASETS[dataset]["num_samples"]
-#     # Get the number of training steps
-#     num_steps = math.ceil(num_samples / (batch_size * num_gpus * num_workers))
-#     # Get the number of training seconds
-#     num_seconds = num_steps * num_epochs / config.MODELS[model]["steps_per_second"]
-#     return int(num_seconds)

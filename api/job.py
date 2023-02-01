@@ -1,3 +1,4 @@
+import uuid
 import config
 import logging
 import datetime
@@ -21,8 +22,13 @@ def run_job(job: db.Job, destination: Destination, background_tasks: BackgroundT
     docker_client = get_docker_client(destination.server)
 
     with Session(db.engine) as session:
+        job = session.exec(select(db.Job).where(col(db.Job.id) == job.id)).first()
+        # if job.completed_at has value, it means that the job has been completed
+        if job.completed_at:
+            return
+        container_name = f"{job.name.lower().replace(' ', '-')}-{uuid.uuid4()}"
         container = docker_client.containers.run(
-            name = job.container_name,
+            name = container_name,
             image = job.container_image, 
             command = f"horovodrun -np {job.required_gpus} -H localhost:{job.required_gpus} {job.command}",
             shm_size = "1G",
@@ -32,15 +38,12 @@ def run_job(job: db.Job, destination: Destination, background_tasks: BackgroundT
                 "NVIDIA_VISIBLE_DEVICES": "all",
             }
         )
+        job.container_name = container_name
         job.trained_at = destination.server
         job.started_at = datetime.datetime.now()
         job.estimated_completion_time = datetime.datetime.now() + datetime.timedelta(seconds=estimate_job_duration(job))
-        session.add(job)
         session.commit()
         session.refresh(job)
-        logger.info(f"Job {job.name} metadata updated")
-
-        logger.info(f"Container {job.name} created")
         status = container.wait()
 
         # if error does not occur inside the docker
@@ -61,6 +64,24 @@ def run_job(job: db.Job, destination: Destination, background_tasks: BackgroundT
             logger.info(f"Container {job.name}: [Errno 2] No such file or directory")
             container.remove()
             background_tasks.add_task(autoscale, background_tasks)
+
+        # check if there is job that is not completed
+        # if there is, run the job
+        uncompleted_jobs = session.exec(
+            select(db.Job)
+            .where(col(db.Job.completed_at) == None)
+        ).all()
+
+        # if uncompleted_jobs is empty
+        if not uncompleted_jobs:
+            logger.info("No uncompleted job found")
+            return
+
+        for _ in uncompleted_jobs:
+            # Try this code first
+            # If none of the jobs are migrated, then try the other code
+            background_tasks.add_task(autoscale, background_tasks)
+            # background_tasks.add_task(run_job, job, destination, background_tasks) # Only one job was migrated 13 times
 
 
 def estimate_job_duration(job: db.Job):
@@ -123,24 +144,24 @@ def kill_job(id):
             .where(col(db.Job.completed_at) == None)
         ).one()
 
-    docker_client = get_docker_client(job.trained_at)
-    # get a list of all containers
-    containers = docker_client.containers.list(all=True)
+        docker_client = get_docker_client(job.trained_at)
+        # get a list of all containers
+        containers = docker_client.containers.list(all=True)
 
-    # if the job.container_name not in the list of containers, return
-    if job.container_name not in [container.name for container in containers]:
-        logger.info(f"Container {job.container_name} does not exist")
-        return
-    else:
-        container = docker_client.containers.get(job.container_name)
-        container.stop()
-        container.remove()
-        logger.info(f"Container {job.container_name} stopped and removed")
+        # if the job.container_name not in the list of containers, return
+        if job.container_name not in [container.name for container in containers]:
+            logger.info(f"Container {job.container_name} does not exist")
+            return
+        else:
+            container = docker_client.containers.get(job.container_name)
+            container.stop()
+            container.remove()
+            logger.info(f"Container {job.container_name} stopped and removed")
 
-        job.trained_at = None
-        session.commit()
-        session.refresh(job)
-        logger.info(f"Job {job.name} killed")
+            job.trained_at = None
+            session.commit()
+            session.refresh(job)
+            logger.info(f"Job {job.name} killed")
 
 
 def migrate_job(id: int, background_tasks: BackgroundTasks):
@@ -159,8 +180,8 @@ def migrate_job(id: int, background_tasks: BackgroundTasks):
 
         # update the job required gpus to the number of gpus available on the destination server
         job.required_gpus = len(destination.gpus)
-
-        job.no_of_migrations += 1
+        job.container_name = f"{job.name}-{job.no_of_migrations}"
+        job.no_of_migrations = job.no_of_migrations + 1
         session.commit()
         session.refresh(job)
         logger.info(f"Job {job.name} metadata updated")
@@ -178,15 +199,15 @@ def autoscale(background_tasks: BackgroundTasks):
     with Session(db.engine) as session:
         slowest_jobs = session.exec(
             select(db.Job)
-            .where(col(db.Job.started_at) != None)
-            .where(col(db.Job.completed_at) == None)
-            .order_by(col(db.Job.started_at).asc())
-        ).all()
+            .where(col(db.Job.started_at) != None) # The job has started
+            .where(col(db.Job.completed_at) == None) # The job has not completed
+            .order_by(col(db.Job.started_at).asc()) # Order the job from the oldest to the newest
+        ).all() # return many uncompleted jobs
         
         if slowest_jobs == []:
             return
         else:
-            slowest_job = slowest_jobs[0]
+            slowest_job = slowest_jobs[0] # Pick the job with the oldest start time
             if (slowest_job.estimated_completion_time - datetime.datetime.now()).seconds < 120:
                 return
             kill_job(slowest_job.id)

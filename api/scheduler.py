@@ -1,8 +1,7 @@
 import database as db
 from dataclasses import dataclass
 from sqlmodel import Session, select, col
-from lib import get_available_gpus, get_available_gpus_at
-
+from lib import get_available_gpus, get_available_gpus_at, get_most_available_gpus
 
 @dataclass
 class Destination:
@@ -11,7 +10,10 @@ class Destination:
 
 
 def FIFO(required_gpus: int) -> Destination:
-    destination = get_available_gpus(required_gpus)
+    destination = Destination(server="", gpus=[])
+    # if destination.server == "", keep until destination.server is not ""
+    while destination.server == "" and destination.server not in ["gpu3", "gpu4", "gpu5"]:
+        destination = get_available_gpus(required_gpus)
     return destination
 
 

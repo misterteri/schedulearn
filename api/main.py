@@ -88,7 +88,6 @@ async def add_job(new_job: Job, background_tasks: BackgroundTasks):
         job = db.Job(
             name = new_job.name,
             type = new_job.type,
-            container_name=f"{new_job.name.lower().replace(' ', '-')}-{uuid.uuid4()}",
             container_image = new_job.container_image,
             command = new_job.command,
             required_gpus = new_job.required_gpus,
@@ -122,7 +121,7 @@ async def add_job(new_job: Job, background_tasks: BackgroundTasks):
                     background_tasks.add_task(run_job, job, destination, background_tasks)
 
     logger.info("A training job is added to the scheduler")
-    return JSONResponse(status_code=201, content={"message": "Job created successfully"})
+    return JSONResponse(status_code=201, content={"message": f"Job created successfully and running on {destination.server} with {len(destination.gpus)} GPUs"}) 
 
 @app.put("/algorithm/{algorithm}")
 async def change_algorithm(algorithm: str):
