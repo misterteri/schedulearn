@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 load_dotenv()
 
-PORT = 3000
+PORT = os.getenv("PORT") or 5000
 DB_URL = os.getenv("DB_URL") or "sqlite:///database.db"
 
 GPU3_DOCKER_HOST = f"ssh://{os.environ.get('USERNAME')}@{os.environ.get('GPU3_IP')}"
