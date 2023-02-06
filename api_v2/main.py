@@ -76,7 +76,7 @@ async def on_startup():
 async def on_shutdown():
     logger.info("API shutting down")
 
-
+# TODO: refactor this function so that it could work well with other schedulers
 @app.post("/jobs", response_model=Job, status_code=201)
 async def add_job(new_job: Job, background_tasks: BackgroundTasks):
     with Session(db.engine) as session:
