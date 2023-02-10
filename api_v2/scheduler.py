@@ -146,9 +146,8 @@ class Scheduler:
             session.commit()
             session.refresh(job)
             logger.info(f"Job {job.name} metadata updated")
+            
         logger.info(f"Job {job.name} migrated to {destination.server}")
-
-        # TODO: fix this later
         background_tasks.add_task(self.run_job, job, destination, background_tasks)
     
     def run_job(self, job: Job, background_tasks: BackgroundTasks, destination: Destination):
@@ -217,7 +216,13 @@ class Scheduler:
                 # background_tasks.add_task(self.run_job, job, destination, background_tasks) # Only one job was migrated 13 times
 
     @staticmethod
-    def autoscale(self, job: Job, background_tasks: BackgroundTasks):
+    def scale_in(self, job: Job, background_tasks: BackgroundTasks):
+        "reduce the number of gpus"
+        pass
+    
+    @staticmethod
+    def scale_out(self, job: Job, background_tasks: BackgroundTasks):
+        "increase the number of gpus"
         with Session(db.engine) as session:
             slowest_jobs = session.exec(
                 select(db.Job)
@@ -237,15 +242,17 @@ class Scheduler:
 
 @dataclass
 class FIFO(Scheduler):
-  def FIFO(self, destination:Destination):
-    destination = Destination(server="", gpus=[])
-    while destination.server == "" and destination.server not in ["gpu3", "gpu4", "gpu5"]:
-        destination = get_available_gpus(destination.required_gpus)
-    return destination
+    @staticmethod
+    def schedule(self, destination:Destination):
+        destination = Destination(server="", gpus=[])
+        while destination.server == "" and destination.server not in ["gpu3", "gpu4", "gpu5"]:
+            destination = get_available_gpus(destination.required_gpus)
+        return destination
     
 @dataclass
 class RoundRobin(Scheduler):
-    def RoundRobin(self, destination:Destination):
+    @staticmethod
+    def schedule(self, destination:Destination):
         with Session(db.engine) as session:
             last_server = session.exec(
                 select(db.Schedulearn)
@@ -279,4 +286,6 @@ class RoundRobin(Scheduler):
 
 class SRJF(Scheduler):
 # Only create variables and functions that specific to SRJF
-    pass
+    @staticmethod
+    def schedule(self, destination:Destination):
+        pass
