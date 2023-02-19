@@ -7,7 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel, Session, create_engine
 engine = create_engine(config.DB_URL, echo=True)
 
 class Schedulearn(SQLModel, table=True):
-    configuration: Optional[str] = Field(default="RoundRobin", primary_key=True)
+    configuration: Optional[str] = Field(default="FIFO", primary_key=True)
     value: Optional[str]
 
 
@@ -35,6 +35,7 @@ class Job(SQLModel, table=True):
     container_name: str = Field(default=None)
     container_image: str = Field(default=None)
     command: str = Field(default=None)
+    status: str = Field(default=None)
     trained_at: Optional[str]
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     started_at: Optional[datetime] = Field(default=None)
