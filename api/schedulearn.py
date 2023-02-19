@@ -1,45 +1,46 @@
 import uuid
-import config
-import logging
 import datetime
 import database as db
 from lib import get_docker_client
-from logging.config import dictConfig
 from scheduler import FIFO, RoundRobin
 from sqlmodel import Session, select, col
+from fastapi import BackgroundTasks
 
-dictConfig(config.LOGGING)
-logger = logging.getLogger(__name__)
-
-def Run(new_job, logger):
+def Run(new_job_id: int, background_tasks: BackgroundTasks):
     with Session(db.engine) as session:
         scheduling_algorithm = session.exec(
             select(db.Schedulearn)
             .where(col(db.Schedulearn.configuration) == "algorithm")
         ).first()
 
-    if scheduling_algorithm.value == "FIFO":
-        available_gpus = FIFO(new_job.required_gpus)
-        logger.info(f"Return {len(available_gpus['gpus'])} with FIFO")
+        new_job = session.exec(
+            select(db.Job).where(col(db.Job.id) == new_job_id)
+        ).one()
 
-    if scheduling_algorithm.value == "RoundRobin":
-        available_gpus = RoundRobin(new_job.required_gpus)
-        logger.info(f"Return {len(available_gpus['gpus'])} with RoundRobin")
+        if scheduling_algorithm.value == "FIFO":
+            available_gpus = {'server': None, 'gpus': []}
+            while available_gpus['server'] is None or len(available_gpus['gpus']) < new_job.required_gpus:
+                found = FIFO(new_job.required_gpus)
+                available_gpus['server'] = found['server']
+                available_gpus['gpus'] = found['gpus']
+
+        if scheduling_algorithm.value == "RoundRobin":
+            available_gpus = RoundRobin(new_job.required_gpus)
         
     docker_client = get_docker_client(available_gpus['server'])
 
     with Session(db.engine) as session:
-        job = db.Job(
-            name = f"{new_job.name.lower().replace(' ', '-')}-{uuid.uuid4()}",
-            type = job.type,
-            container_image = job.container_image,
-            command = job.command,
-            required_gpus = job.required_gpus,
-            trained_at = available_gpus['server'],
-        )
+        # find the job by new_job.id
+        job = session.exec(
+            select(db.Job).where(col(db.Job.id) == new_job.id)
+        ).one()
+        
+        job.container_name = f"{new_job.name.lower().replace(' ', '-')}-{uuid.uuid4()}"
+        job.trained_at = available_gpus['server']
+        job.status = "Running"
         
         container = docker_client.containers.run(
-            name = job.name,
+            name = job.container_name,
             image = job.container_image, 
             command = f"horovodrun -np {job.required_gpus} -H localhost:{job.required_gpus} {job.command}",
             shm_size = "1G",
@@ -50,26 +51,38 @@ def Run(new_job, logger):
         )
 
         job.started_at = datetime.datetime.now()
-        session.add(job)
         session.commit()
         session.refresh(job)
-        logger.info(f"Job {job.name} added to the database")
 
         status = container.wait()
-        logger.info(f"Container {job.name} created")
 
-        # if error does not occur inside the docker
-        if status != 0:
+        if status.get('StatusCode') == 0:
             job.completed_at = datetime.datetime.now()
+            job.status = "Completed"
             session.commit()
             session.refresh(job)
-            logger.info(f"Job {job.name} completed")
             with open(f"output/{(job.type).lower()}/{job.container_name}.txt", "w") as f:
                 f.write(container.logs().decode("utf-8"))
-                logger.info(f"Output of {job.name} saved to file")
+        elif status.get('StatusCode') == 1 or status.get('StatusCode') == 2:
+            container = docker_client.containers.get(job.container_name)
+            if container:
+                container.remove()
+                job.container_name = None
+                job.completed_at = None
+                job.status = "Error"
+                session.commit()
+                session.refresh(job)
+                background_tasks.add_task(Run, job.id, background_tasks)
+            else:
+                job.container_name = None
+                job.completed_at = None
+                job.status = "Error"
+                session.commit()
+                session.refresh(job)
+                background_tasks.add_task(Run, job.id, background_tasks)
 
 
-def Remove(id, logger):
+def Remove(id):
     with Session(db.engine) as session:
         job = session.exec(
             select(db.Job)
@@ -81,10 +94,8 @@ def Remove(id, logger):
 
     if container: 
         container.remove()
-        logger.info(f"Container {job.container_name} removed")
     else:
-        logger.error(f"Container {job.container_name} does not exist")
+        return
 
     session.delete(job)
     session.commit()
-    logger.info(f"Job {job.name} removed from the database")

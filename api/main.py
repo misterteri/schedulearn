@@ -88,15 +88,26 @@ async def on_shutdown():
 
 @app.post("/jobs", response_model=Job, status_code=201)
 async def add_job(job: Job, background_tasks: BackgroundTasks):
-    # 1. check for the scheduling algorithm
-    # 2. check for the resource availability in the server
-    # 3. if the resource is available, add the job to the scheduler
-        # - if the 
-    # 4. if the resource is not available, return 400
     logger.info("A training job is received")
-    background_tasks.add_task(Run, job)
-    logger.info("A trainig job is added to the scheduler")
-    return JSONResponse(status_code=201, content={"message": "Job created successfully"})
+    with Session(db.engine) as session:
+        latest_job_id = session.exec(select(db.Job).order_by(col(db.Job.id).desc())).first()
+
+        new_job = db.Job(
+            id=latest_job_id.id + 1 if latest_job_id else 1,
+            name=job.name,
+            type=job.type,
+            container_image=job.container_image,
+            command=job.command,
+            required_gpus=job.required_gpus,
+            status="Pending"
+        )
+
+        session.add(new_job)
+        session.commit()
+        logger.info("A training job is added to the database")
+        background_tasks.add_task(Run, new_job.id, background_tasks)
+        logger.info("A trainig job is added to the scheduler")
+        return JSONResponse(status_code=201, content={"message": "Job created successfully"})
 
 @app.put("/algorithm/{algorithm}")
 async def change_algorithm(algorithm: str):

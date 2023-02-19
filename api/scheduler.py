@@ -5,15 +5,15 @@ from sqlmodel import Session, select, col
 
 def FIFO(required_gpus: int) -> dict | None:
     gpus = get_gpus()
+
     for server in ['gpu3', 'gpu4', 'gpu5']:
-        available = [gpu for gpu in gpus if gpu.server == server and gpu.utilization < 80]
+        available = [gpu for gpu in gpus if gpu.server == server and gpu.utilization < 90]
         if len(available) >= required_gpus:
-            # return a dictionary with server and gpu ids
             result = {'server': server, 'gpus': []}
             for gpu in available[:required_gpus]:
                 result['gpus'].append(gpu.id)
             return result
-    return
+    return {'server': None, 'gpus': []}
 
 def RoundRobin(required_gpus: int) -> dict | None:
     result = {"server": "", "gpus": []}
@@ -24,10 +24,8 @@ def RoundRobin(required_gpus: int) -> dict | None:
         ).first()
 
     result['server'] = last_server.value
-    # get the gpus
     gpus = get_gpus()
 
-    # get the gpus from the last server
     available = [gpu for gpu in gpus if gpu.server == result['server']]
 
     for gpu in available[:required_gpus]:
@@ -42,7 +40,7 @@ def RoundRobin(required_gpus: int) -> dict | None:
             select(db.Schedulearn)
             .where(col(db.Schedulearn.configuration) == "next_server")
         ).first()
-        # update the last server and the next server
+
         last_server.value = next_server.value
         if next_server.value == 'gpu3':
             next_server.value = 'gpu4'

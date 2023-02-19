@@ -41,7 +41,7 @@ def get_gpus() -> list[Gpu]:
                 Gpu(
                     server=server, 
                     uuid=stat[0], 
-                    id=f"{server}-{i}",
+                    id=f"{i}",
                     name=stat[1], 
                     utilization=float(stat[2].strip('%')), 
                     memory_usage=int(int(stat[3])/int(stat[4])*100),
