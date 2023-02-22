@@ -5,7 +5,7 @@ import logging
 import time
 import asyncio
 import database as db
-from schedulearn import Run, Remove
+from schedulearn import run_job, remove_job
 from pydantic import EmailStr, BaseModel
 from dotenv import load_dotenv
 from logging.config import dictConfig
@@ -13,9 +13,7 @@ from sqlmodel import Session, select, col
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from auth import hash_password, encode_token, verify_password
 from lib import get_docker_client, log_system_status
-from mail import send_email
 
 
 load_dotenv()
@@ -105,7 +103,7 @@ async def add_job(job: Job, background_tasks: BackgroundTasks):
         session.add(new_job)
         session.commit()
         logger.info("A training job is added to the database")
-        background_tasks.add_task(Run, new_job.id, background_tasks)
+        background_tasks.add_task(run_job, new_job.id, background_tasks)
         logger.info("A trainig job is added to the scheduler")
         return JSONResponse(status_code=201, content={"message": "Job created successfully"})
 
@@ -119,6 +117,11 @@ async def change_algorithm(algorithm: str):
             session.commit()
             logging.info("Algorithm changed to FIFO")
             return JSONResponse(status_code=200, content={"message": "Algorithm changed to FIFO"})
+        elif algorithm.lower() == "elasticfifo":
+            current_algorithm.value = "ElasticFIFO"
+            session.commit()
+            logging.info("Algorithm changed to Elastic FIFO")
+            return JSONResponse(status_code=200, content={"message": "Algorithm changed to Elastic FIFO"})
         elif algorithm.lower() == "roundrobin":
             current_algorithm.value = "RoundRobin"
             session.commit()
@@ -182,7 +185,7 @@ async def kill_job(id: int, background_tasks: BackgroundTasks):
     If a model is on progress, delete the pod immediately, as well as the
     metadata of a model in the database.
     """
-    background_tasks.add_task(Remove, id)
+    background_tasks.add_task(remove_job, id)
     logger.info("A job is deleted")
     return JSONResponse(content={"message": "Job deleted successfully"})
 

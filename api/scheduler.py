@@ -7,10 +7,10 @@ def FIFO(required_gpus: int) -> dict | None:
     gpus = get_gpus()
 
     for server in ['gpu3', 'gpu4', 'gpu5']:
-        available = [gpu for gpu in gpus if gpu.server == server and gpu.utilization < 90]
-        if len(available) >= required_gpus:
+        available_resources = [gpu for gpu in gpus if gpu.server == server and gpu.utilization < 90]
+        if len(available_resources) >= required_gpus:
             result = {'server': server, 'gpus': []}
-            for gpu in available[:required_gpus]:
+            for gpu in available_resources[:required_gpus]:
                 result['gpus'].append(gpu.id)
             return result
     return {'server': None, 'gpus': []}
@@ -26,9 +26,9 @@ def RoundRobin(required_gpus: int) -> dict | None:
     result['server'] = last_server.value
     gpus = get_gpus()
 
-    available = [gpu for gpu in gpus if gpu.server == result['server']]
+    available_resources = [gpu for gpu in gpus if gpu.server == result['server']]
 
-    for gpu in available[:required_gpus]:
+    for gpu in available_resources[:required_gpus]:
         result['gpus'].append(gpu.id)
 
     with Session(db.engine) as session:
@@ -51,7 +51,7 @@ def RoundRobin(required_gpus: int) -> dict | None:
         session.commit()
 
     # if there are enough gpus, return the server and the gpus
-    if len(available) >= required_gpus:
+    if len(available_resources) >= required_gpus:
         logging.info(f"RoundRobin: {result}")
         return result
     else:
