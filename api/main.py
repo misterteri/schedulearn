@@ -4,6 +4,11 @@ import config
 import uvicorn
 import logging
 import database as db
+<<<<<<< HEAD
+=======
+from schedulearn import run_job, remove_job
+from pydantic import EmailStr, BaseModel
+>>>>>>> 131ffc4ddd559a59ab56f83a9e5bd76fba0b6e37
 from dotenv import load_dotenv
 from lib import get_docker_client
 from job import run_job, remove_job
@@ -13,7 +18,11 @@ from pydantic import EmailStr, BaseModel
 from sqlmodel import Session, select, col
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+<<<<<<< HEAD
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
+=======
+from lib import get_docker_client, log_system_status
+>>>>>>> 131ffc4ddd559a59ab56f83a9e5bd76fba0b6e37
 
 
 load_dotenv()
@@ -78,6 +87,7 @@ async def on_shutdown():
 
 
 @app.post("/jobs", response_model=Job, status_code=201)
+<<<<<<< HEAD
 async def add_job(new_job: Job, background_tasks: BackgroundTasks):
     with Session(db.engine) as session:
         scheduling_algorithm = session.exec(
@@ -122,6 +132,29 @@ async def add_job(new_job: Job, background_tasks: BackgroundTasks):
 
     logger.info("A training job is added to the scheduler")
     return JSONResponse(status_code=201, content={"message": f"Job created successfully and running on {destination.server} with {len(destination.gpus)} GPUs"}) 
+=======
+async def add_job(job: Job, background_tasks: BackgroundTasks):
+    logger.info("A training job is received")
+    with Session(db.engine) as session:
+        latest_job_id = session.exec(select(db.Job).order_by(col(db.Job.id).desc())).first()
+
+        new_job = db.Job(
+            id=latest_job_id.id + 1 if latest_job_id else 1,
+            name=job.name,
+            type=job.type,
+            container_image=job.container_image,
+            command=job.command,
+            required_gpus=job.required_gpus,
+            status="Pending"
+        )
+
+        session.add(new_job)
+        session.commit()
+        logger.info("A training job is added to the database")
+        background_tasks.add_task(run_job, new_job.id, background_tasks)
+        logger.info("A trainig job is added to the scheduler")
+        return JSONResponse(status_code=201, content={"message": "Job created successfully"})
+>>>>>>> 131ffc4ddd559a59ab56f83a9e5bd76fba0b6e37
 
 @app.put("/algorithm/{algorithm}")
 async def change_algorithm(algorithm: str):
@@ -133,6 +166,11 @@ async def change_algorithm(algorithm: str):
             session.commit()
             logging.info("Algorithm changed to FIFO")
             return JSONResponse(status_code=200, content={"message": "Algorithm changed to FIFO"})
+        elif algorithm.lower() == "elasticfifo":
+            current_algorithm.value = "ElasticFIFO"
+            session.commit()
+            logging.info("Algorithm changed to Elastic FIFO")
+            return JSONResponse(status_code=200, content={"message": "Algorithm changed to Elastic FIFO"})
         elif algorithm.lower() == "roundrobin":
             current_algorithm.value = "RoundRobin"
             session.commit()

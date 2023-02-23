@@ -7,7 +7,7 @@ from sqlmodel import Field, Relationship, SQLModel, Session, create_engine, sele
 engine = create_engine(config.DB_URL, echo=True)
 
 class Schedulearn(SQLModel, table=True):
-    configuration: Optional[str] = Field(default="RoundRobin", primary_key=True)
+    configuration: Optional[str] = Field(default="FIFO", primary_key=True)
     value: Optional[str]
 
 class Server(SQLModel, table=True):
@@ -52,6 +52,11 @@ class Job(SQLModel, table=True):
     container_name: str = Field(default=None)
     container_image: str = Field(default=None)
     command: str = Field(default=None)
+<<<<<<< HEAD
+=======
+    status: str = Field(default=None)
+    trained_at: Optional[str]
+>>>>>>> 131ffc4ddd559a59ab56f83a9e5bd76fba0b6e37
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     started_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)
