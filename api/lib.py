@@ -4,6 +4,8 @@ import docker
 import subprocess
 from datetime import datetime
 from dataclasses import dataclass
+import concurrent.futures
+
 
 @dataclass
 class Gpu:
@@ -43,6 +45,7 @@ def get_docker_client(server: str) -> docker.DockerClient:
 
 
 def get_gpus() -> list[Gpu]:
+<<<<<<< Updated upstream
     """
         Iterate through each server and returns a list of all graphics cards across all servers.
 
@@ -69,8 +72,32 @@ def get_gpus() -> list[Gpu]:
                     utilization=float(stat[2].strip('%')), 
                     memory_usage=int(int(stat[3])/int(stat[4])*100),
                     timestamp=datetime.now()
+=======
+    gpus = []
+    servers = ['gpu3', 'gpu4', 'gpu5']
+    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit SSH requests for all servers asynchronously
+        futures = {executor.submit(get_gpu_stats, server): server for server in servers}
+
+        # Wait for all SSH requests to complete and process results
+        for future in concurrent.futures.as_completed(futures):
+            server = futures[future]
+            result = future.result()
+            
+            for i, stat in enumerate(csv.reader(result, delimiter=',')):
+                gpus.append(
+                    Gpu(
+                        server=server, 
+                        uuid=stat[0], 
+                        id=f"{i}",
+                        name=stat[1][1:],
+                        utilization=float(stat[2].strip('%')), 
+                        memory_usage=int(int(stat[3])/int(stat[4])*100),
+                        timestamp=datetime.now()
+                    )
+>>>>>>> Stashed changes
                 )
-            )
     return gpus
 
 def get_available_gpus(required_gpus: int) -> Destination:
@@ -144,6 +171,7 @@ def get_available_gpus_at(destination_server: str, required_gpus: int | None) ->
     return destination
 
 
+<<<<<<< Updated upstream
 def log_system_status(filename: str) -> None:
     """
         Write the system status to a file.
@@ -164,3 +192,46 @@ def log_system_status(filename: str) -> None:
             f.write(
                 f"{datetime.now()},{','.join([str(gpu.memory_usage) for gpu in gpus])}\n"
             )
+=======
+def get_gpu_stats(server):
+    return subprocess.run(
+        f"ssh {server} nvidia-smi --query-gpu=uuid,gpu_name,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits".split(' '), 
+        stdout=subprocess.PIPE
+    ).stdout.decode('utf-8').splitlines()
+
+
+def get_busiest_server():
+    gpus = get_gpus()
+    return sorted(gpus, key=lambda gpu: gpu.utilization, reverse=True)[0].server
+
+
+def get_least_busy_server():
+    gpus = get_gpus()
+    return sorted(gpus, key=lambda gpu: gpu.utilization)[0].server
+
+
+# def log_system_status(filename: str) -> None:
+#     with open(filename, 'a') as f:
+#         gpus = get_gpus()
+#         if f.tell() == 0:
+#             f.write(
+#                 f"time,{','.join([gpu.id for gpu in gpus])}\n"
+#             )
+#         else: 
+#             f.write(
+#                 f"{datetime.now()},{','.join([str(gpu.memory_usage) for gpu in gpus])}\n"
+#             )
+
+
+# async def log_system_status(filename: str) -> None:
+#     gpus = get_gpus()
+#     header = ','.join([gpu.id for gpu in gpus])
+#     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+#     data = ','.join([str(gpu.memory_usage) for gpu in gpus])
+#     content = f"{now},{data}\n"
+#     async with aiofiles.open(filename, mode='a') as f:
+#         file_size = await f.tell()
+#         if file_size == 0:
+#             await f.write(f"time,{header}\n")
+#         await f.write(content)
+>>>>>>> Stashed changes

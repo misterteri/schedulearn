@@ -1,13 +1,21 @@
 import config
+<<<<<<< Updated upstream
 from lib import get_gpus
 from typing import Optional, List
+=======
+from typing import List, Optional
+>>>>>>> Stashed changes
 from datetime import datetime
 from sqlmodel import Field, Relationship, SQLModel, Session, create_engine, select
 
 engine = create_engine(config.DB_URL, echo=True)
 
 class Schedulearn(SQLModel, table=True):
+<<<<<<< Updated upstream
     configuration: Optional[str] = Field(default="RoundRobin", primary_key=True)
+=======
+    configuration: Optional[str] = Field(default="ElasticFIFO", primary_key=True)
+>>>>>>> Stashed changes
     value: Optional[str]
 
 class Server(SQLModel, table=True):
@@ -52,6 +60,12 @@ class Job(SQLModel, table=True):
     container_name: str = Field(default=None)
     container_image: str = Field(default=None)
     command: str = Field(default=None)
+<<<<<<< Updated upstream
+=======
+    status: str = Field(default=None)
+    trained_at: Optional[str]
+    at_gpus: list[int] = Field(default=None)
+>>>>>>> Stashed changes
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     started_at: Optional[datetime] = Field(default=None)
     completed_at: Optional[datetime] = Field(default=None)

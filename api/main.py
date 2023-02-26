@@ -3,15 +3,24 @@ import time
 import config
 import uvicorn
 import logging
+<<<<<<< Updated upstream
 import database as db
 from dotenv import load_dotenv
 from lib import get_docker_client
 from job import run_job, remove_job
 from logging.config import dictConfig
 from scheduler import FIFO, RoundRobin
+=======
+import asyncio
+import database as db
+from dotenv import load_dotenv
+from lib import get_docker_client
+from logging.config import dictConfig
+>>>>>>> Stashed changes
 from pydantic import EmailStr, BaseModel
 from sqlmodel import Session, select, col
 from fastapi.responses import JSONResponse
+from schedulearn import run_job, remove_job
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket
 
@@ -20,6 +29,7 @@ load_dotenv()
 dictConfig(config.LOGGING)
 logger = logging.getLogger(__name__)
 app = FastAPI(debug=True)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,10 +90,15 @@ async def on_shutdown():
 @app.post("/jobs", response_model=Job, status_code=201)
 async def add_job(new_job: Job, background_tasks: BackgroundTasks):
     with Session(db.engine) as session:
+<<<<<<< Updated upstream
         scheduling_algorithm = session.exec(
             select(db.Schedulearn)
             .where(col(db.Schedulearn.configuration) == "algorithm")
         ).first()
+=======
+        scheduling_algorithm = session.exec(select(db.Schedulearn).where(db.Schedulearn.configuration == "algorithm")).first()
+        latest_job_id = session.exec(select(db.Job).order_by(col(db.Job.id).desc())).first()
+>>>>>>> Stashed changes
 
         job = db.Job(
             name = new_job.name,
@@ -96,6 +111,7 @@ async def add_job(new_job: Job, background_tasks: BackgroundTasks):
 
         session.add(job)
         session.commit()
+<<<<<<< Updated upstream
         logger.info(f"Job {job.name} added to the database")
 
         if scheduling_algorithm.value == "FIFO":
@@ -122,12 +138,22 @@ async def add_job(new_job: Job, background_tasks: BackgroundTasks):
 
     logger.info("A training job is added to the scheduler")
     return JSONResponse(status_code=201, content={"message": f"Job created successfully and running on {destination.server} with {len(destination.gpus)} GPUs"}) 
+=======
+        logger.info("A training job is added to the database")
+        background_tasks.add_task(run_job, new_job.id, scheduling_algorithm, background_tasks)
+        logger.info("A trainig job is added to the scheduler")
+        return JSONResponse(status_code=201, content={"message": "Job created successfully"})
+>>>>>>> Stashed changes
 
 @app.put("/algorithm/{algorithm}")
 async def change_algorithm(algorithm: str):
     "Change the scheduling algorithm"
     with Session(db.engine) as session:
-        current_algorithm = session.exec(select(db.Schedulearn).where(db.Schedulearn.configuration == "algorithm")).first()
+        current_algorithm = session.exec(
+            select(db.Schedulearn)
+            .where(db.Schedulearn.configuration == "algorithm")
+        ).first()
+        
         if algorithm.lower() == "fifo":
             current_algorithm.value = "FIFO"
             session.commit()
